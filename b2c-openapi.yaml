@@ -1,0 +1,3371 @@
+openapi: 3.1.0
+info:
+  title: FormKing API
+  version: 1.0.8
+  summary: Core business consumer engagement engine.
+  description: "**[Home](https://www.formking.com.au/) | API Docs**\n\nWelcome to\
+    \ the **Form King Modellers API**! Everyone with a Form King Web Subscription\
+    \ can now automate their workflows :)\n\n\n> The Form King Modellers API is now\
+    \ production-ready and generally available to all new and existing Form King Web\
+    \ subscribers. Please ensure that you read, accept and adhere to our [API Terms](https://static.formking.com.au/b2c-api-terms.html)\
+    \ before you request or use an API key.\n\n## Getting Started\n1. If you have\
+    \ an active Form King web subscription, head to the [My Subscriptions](https://www.formking.com.au/member/subscriptions)\
+    \ page >> API Keys / Usage.\n2. Click the `Generate API Key` button. Carefully\
+    \ read the terms and conditions. If you're comfortable, check the box to accept\
+    \ and generate your key. \n3. Your bundled balance will have been pre-filled based\
+    \ on your subscription tier, and you're ready to start!\n4. Ensure you send the\
+    \ proper `x-api-key` header with every API request. You can even test out API\
+    \ calls from within this page, using your key or the built in test API key (FK-TEST-API-KEY)!\n\
+    \n---\n\n## API Credit Model\nWe've implemented the following credit usage model\
+    \ and bundled allowances. All APIs have a fixed credit cost to cover our cloud\
+    \ computing expenses, and APIs containing our most premium data (BenchmarkedRun)\
+    \ also incur a variable credit cost at a certain depth. Credit costs and bundled\
+    \ allowances have been set to be incredibly generous within existing subscription\
+    \ pricing, while pricing bulk-scraping at full depth out of reach. We think 99%\
+    \ of people will find an incredible amount of value in this API, and we're proud\
+    \ to offer such a powerful capability, starting at under $100 / month for Lite\
+    \ subscribers.\n\n### Credit Sizing by API\n\n Operation | Base Cost        |\
+    \ Variable Component                                                         \
+    \                                   | Rationale                              \
+    \                                                                            \
+    \                                                                            \
+    \                                |\n---|------------------|---------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n\
+    \ `GET /b2c/meetings/upcoming` | **1 credit**     | \u2014                   \
+    \                                                                            \
+    \              | Cursory lookup of all upcoming meetings; Filter by States, Grades,\
+    \ Status to reduce credit costs and narrow the scope of data retrieval.      \
+    \                                                                            \
+    \ |\n `GET /b2c/meetings/{id}` (Get Meeting Summary) | **5 credits**    | \u2014\
+    \                                                                            \
+    \                                 | Full meeting with race entries; moderate data\
+    \ depth matching the Form Guide. Includes last 12 PastEvent (race only) records\
+    \ per runner, with weight-adjusted and WFA ratings. Market odds and neural/EXP\
+    \ ratings also included. |\n `GET /b2c/meetings/{id}/speedmaps` (Get Meeting Speedmaps)\
+    \ | **5 credits**    | \u2014                                                \
+    \                                                             | All-race speedmap\
+    \ data for a meeting in one call; bulk value                                 \
+    \                                                                            \
+    \                                                      |\n `GET /b2c/meetings/{id}/speedmaps/{raceId}`\
+    \ (Get Race Speedmap) | **1 credit**     | \u2014                            \
+    \                                                                            \
+    \     | Single race speedmap; lightweight                                    \
+    \                                                                            \
+    \                                                                            \
+    \  |\n `GET /b2c/meetings/{id}/races/{raceId}` (Get Race Form) with **numBenchmarks\
+    \ <= 5** | **2 credits**    | \u2014                                         \
+    \                                                                    | Race form\
+    \ with numBenchmarks <= 5. Can still have the full career PastEvents at the fixed\
+    \ 2 credit price.                                                            \
+    \                                                          |\n `GET /b2c/meetings/{id}/races/{raceId}`\
+    \ with **numBenchmarks > 5** | **2 + variable** | +0.5 credits per additional\
+    \ `BenchmarkedRun` item returned (partial credits rounded up at the response level)\
+    \ | Modellers pay proportional to depth retrieved. For numBenchmarks=10, credit\
+    \ cost can range between 15 and 50 credits per race.                         \
+    \                                                                        |\n `GET\
+    \ /b2c/horses/{id}` (Get Horse Profile) with **numBenchmarks <= 5** | **2 credits**\
+    \    | \u2014                                                                \
+    \                                             | Horse form with numBenchmarks\
+    \ <= 5. Can still have the full career PastEvents at the fixed 2 credit price.\
+    \                                                                            \
+    \                                         |\n `GET /b2c/horses/{id}` (Get Horse\
+    \ Profile) with **numBenchmarks > 5** | **2 + variable** | +0.5 credits per additional\
+    \ `BenchmarkedRun` item returned (partial credits rounded up at the response level)\
+    \ | Same variable model as race form, so max cost is 12 credits for the full runner\
+    \ career form and benchmarking.                                              \
+    \                                                                    |\n `POST\
+    \ /b2c/account/keys` | **1 credit**     | \u2014                             \
+    \                                                                            \
+    \    | Revoke or Re-activate your API key.                                   \
+    \                                                                            \
+    \                                                                            \
+    \ |\n `GET /b2c/account/keys/{uid}` | **1 credit**     | \u2014              \
+    \                                                                            \
+    \                   | View your credit balance information and key details.  \
+    \                                                                            \
+    \                                                                            \
+    \                |\n `GET /b2c/usage` | **1 credit**     | \u2014            \
+    \                                                                            \
+    \                     | Query for raw or daily grouped credit usage history pertaining\
+    \ to your API key.                                                           \
+    \                                                                            \
+    \         |\n\n> **BenchmarkedRun pricing note:** Our variable credit design exists\
+    \ to protect the Form King database from bulk replication. We will always strive\
+    \ to provide high value at an affordable price, and as such, we've decided to\
+    \ include the first 5 `BenchmarkedRun` instances per runner at no additional cost.\
+    \ This allows the vast majority of modellers access to the most recent and relevant\
+    \ data on a rolling basis and leaves them with a huge amount of headroom to cover\
+    \ all of Australia, providing their subscription allows this level of data. Any\
+    \ resulting partial credit total (e.g. 2.5 credits) is rounded up to the nearest\
+    \ whole credit (e.g. 3 credits) when charged.\n\n### Bundled Credits per Web Subscription\
+    \ Tier\n\n Tier | Monthly Price | Bundled Monthly Credits | Approx credits/day\
+    \ | Rationale                                                                \
+    \                                                                            \
+    \                                                                            \
+    \                                                                            \
+    \                                                                            \
+    \                                                                            \
+    \                                      |\n---|---------------|-------------------------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n\
+    \ Lite | $95 AUD/mo    | **10,000 credits***     | ~333               | Intended\
+    \ for hobbyists / light automation. Typical pattern: scheduled Get Upcoming Meetings\
+    \ polls each day, then either (a) call Get Race Form or (b) Get Meeting Summary\
+    \ + Get Meeting Speedmaps as needed. Supports ~333 upcoming checks/day, ~166 race\
+    \ forms/day (no benchmarks with Lite subscriptions), or ~66 meeting summaries/day.\
+    \ Designed for cursory form automation and modelling, rather than sustained/deep\
+    \ data analysis across many races/horses.                                    \
+    \      |\n Single State Pro | $165 AUD/mo   | **20,000 credits***     | ~667 \
+    \              | Designed for one-state professional workflows. Typical pattern:\
+    \ scheduled Get Upcoming Meetings \u2192 mostly Get Race Form calls or Get Meeting\
+    \ Summary + Get Meeting Speedmaps for that state. Supports ~333 race forms/day\
+    \ (up to 5 benchmarks) or ~133 meeting summaries/day. Suitable for daily automated\
+    \ pulls, powerful benchmark-driven modelling within one state; occasional broader/deeper\
+    \ modelling possible, but may require top-up credits or an upgrade to Pro.   \
+    \                               |\n Pro | $265 AUD/mo   | **30,000 credits***\
+    \     | ~1000              | For nationally-focused modellers. Typical pattern:\
+    \ scheduled Get Upcoming Meetings \u2192 mix of Get Meeting Summary, Get Meeting\
+    \ Speedmaps and many Get Race Form calls; some users will hit Get Horse Profile.\
+    \ Supports ~500 race forms/day (up to 5 benchmarks) or broad multi-state coverage.\
+    \ Enables regular production/near-production model runs; deeper modelling across\
+    \ many races/horses is feasible but may require top-up credits for those that\
+    \ want to model all jurisdictions to a deeper level. |\n\n*For Monthly subscriptions,\
+    \ bundled credits **do not roll over** at period renewal. For 3, 6 and 12 month\
+    \ subscriptions, a 2 x monthly bundled credit cap is available. Top-up credits\
+    \ (purchased ad-hoc) **do** persist until used. Upon expiry of credit balance,\
+    \ API requests will return HTTP 402 (Payment Required) error. API keys continuing\
+    \ to send traffic resulting in sustained/large numbers of 402 errors will be paused\
+    \ with manual intervention required to restore access. \n\n### Top-Up Credits\n\
+    Top-up credits will be available for purchase from the [My Subscriptions](https://www.formking.com.au/member/subscriptions)\
+    \ page within Form King Web on an ad-hoc basis at the following rates:\n\n| Bundle\
+    \ Size        | Total Credits | Price (AUD) | Effective Rate (per 1k credits)\
+    \ | Savings vs. Base |\n|:-------------------| :------------ |:------------|:--------------------------------|:-----------------|\n\
+    | **Micro**          | 1,000         | $10.00      | $10.00                  \
+    \        | \u2014                |\n| **Starter**        | 10,000        | $95.00\
+    \      | $9.50                           | 5.0%             |\n| **Modeller**\
+    \       | 25,000        | $212.50     | $8.50                           | 15.0%\
+    \            |\n| **Professional**   | 50,000        | $400.00     | $8.00   \
+    \                        | 20.0%            |\n| **Data Scientist** | 100,000\
+    \       | $750.00     | $7.50                           | 25.0%            |\n\
+    \n---\n\n## API Usage and Rate Limiting\nYour use of the Form King API is bound\
+    \ by our [API Terms](https://static.formking.com.au/b2c-api-terms.html). We've\
+    \ provided an industry-first modelling API with generous usage limits, breaking\
+    \ down the barrier to entry for everyday racing analysts and without the need\
+    \ for an expensive \"modeller\" subscription. Users pay for what they consume,\
+    \ and we've included several methods for limiting the scope of data and credit\
+    \ cost.\n\nThe Form King API is for personal, non-commercial usage only, unless\
+    \ otherwise stated in writing by Form King or their representative. Users are\
+    \ not permitted to use the API to develop a product that may become commercial\
+    \ at a later stage. See the [API Terms](https://static.formking.com.au/b2c-api-terms.html)\
+    \ for the full set of restrictions and definitions with regard to acceptable API\
+    \ use. \n\nWe have a strict no \"bulk scraping\" policy. Users are not entitled\
+    \ to make copies of the Form King (and Mediality Racing) datasets to the full\
+    \ depth. Attempts to circumvent current and future API security measures or rate/data\
+    \ limits will result in termination of access, and if required, those incidents\
+    \ will be reported to the relevant industry and regulatory bodies, in line with\
+    \ our contractual obligations with these bodies.\n\n---\n\n## Release Notes\n\n\
+    ### 1.0.8 (GA Release on 10/9/26)\n* Added API key and usage APIs for self-service\
+    \ and near-real-time balance query, key management and credit usage history.\n\
+    * Switched on live credit deduction. Added credit usage viewer/CSV download and\
+    \ API key management via Form King Web.\n* Added a statuses query parameter to\
+    \ Get Upcoming Meetings, to allow people to drop abandoned or nominations/weights\
+    \ meetings.\n* Uploaded API spec and documentation to our [GitHub](https://github.com/dpfundt/form-king-api-tools)\
+    \ page.\n* Added [API FAQ](https://www.formking.com.au/api-faq) page on Form King\
+    \ Web and marketing via homepage.\n* Partial credits are now rounded up at the\
+    \ response level (e.g numBenchmarks=8, the 1.5 credits is charged as 2 credits\
+    \ instead of 1).\n* Implemented bundled credit rollover each month and automatically\
+    \ zero balance when an invoice is not paid for 7 days.\n* Implemented top-up credit\
+    \ bundle purchase flow, via Form King Web.\n\n\n### 1.0.7-beta (7/8/26)\n* Fixed\
+    \ a high priority point-in-time data issue (FK-758) whereby `Get Meeting Summary`\
+    \ and `Get Race Form` could return `PastEvent` records for today's race, or for\
+    \ future races.\n* Minor changes to API documentation containing more clarity\
+    \ around credit costs (round down/floor if partial credits would otherwise be\
+    \ charged).\n* Added the `includeScratchings` query parameter to the Get Race\
+    \ Form API, defaulting to false. By dropping scratched entries, those horses'\
+    \ profiles will not be fetched and benchmarks will not be included or charged.\
+    \ If passed as true, they will be included and charged.\n\n### 1.0.6-beta (6/8/26)\n\
+    * Updated our [API Terms](https://static.formking.com.au/b2c-api-terms.html) to\
+    \ reflect stronger security and usage policy. Please ensure you're familiar and\
+    \ able to accept these terms before using the API.\n* Implemented the first of\
+    \ our rate limiting policies (300 requests per 300 seconds across both Web and\
+    \ API). Additional limits, including per API to be documented and implemented\
+    \ prior to API general release. HTTP 429 code is returned for rate limit errors.\n\
+    * Proposed an API Credit Pricing Model and distributed amongst API users for comment\
+    \ over a two-week consultation period.\n* Fixed a bug with Get Horse Form where\
+    \ `$.benchmarks` was being inadvertently exposed to the API response. The `PastEvent::benchmark`\
+    \ under `$.pastEvents` is the correct path, per the documentation, which remains\
+    \ unchanged.\n* Set a default numBenchmarks=5 on the `Get Race Form` and `Get\
+    \ Horse Form` APIs in an effort to prevent credit shock for unsuspecting users.\
+    \ Per the proposed credit model, the first 5 benchmarks will be free. Users can\
+    \ opt in to any numBenchmarks value, providing they're willing to pay the credit\
+    \ cost.\n* Deprecated the `RaceSummary::stageId (int)` field, which was inadvertently\
+    \ added to the first draft(s) of the API. Added `RaceSummary::status (string)`\
+    \ for use instead.\n* Corrected a number of API documentation issues with regard\
+    \ to optional fields and data types of some fields.\n* Implemented HTTP 402 (Payment\
+    \ Required) error for accounts with insufficient credit balance to call the API.\
+    \ This will lay dormant until the API is in general release.\n\n### 1.0.5-beta\
+    \ (30/7/26)\n* Implemented the first draft of API credits for monetising API usage.\
+    \ This is currently in reporting-only mode, which enables us to collect usage\
+    \ statistics without enforcing credit limits. We will use this to right size the\
+    \ dollar price of top up credits, and any bundled credit balance that will come\
+    \ with the web subscription.\n* Introduced the `racesOnly`, `numPastRaces` and\
+    \ `numBenchmarks` query parameters to the Get Race Form and Get Horse Profile\
+    \ APIs. These parameters will allow users to reduce the data depth in the response,\
+    \ and in turn save on API credit usage (every benchmark returned costs more credits).\
+    \ \n* Limited \"Pro\" data in each API to only those who have a Pro subscription,\
+    \ or a Single State Pro subscription and are fetching data from their chosen state.\
+    \ In the earlier phases of the API trial, we returned Pro data to everyone.\n\
+    * Documented the PastEvent::subsequentForm field, which was previously missing\
+    \ from API docs. Corrected RaceEntryOdds::bestBookies to an array of String.\n\
+    \n### 1.0.4-beta (24/7/26)\n* Introduced the RaceEntryOdds schema type to house\
+    \ market odds for each RaceEntry.\n* Introduced the RaceEntryRatings schema type,\
+    \ which contains the EXP and Neural ratings, as well as career and 12 month peak\
+    \ ratings.\n* Added the lws field (Likely Winning Standard) to both RaceLite and\
+    \ RaceSummary.\n* Added the syntheticHold field to RaceSummary when market odds\
+    \ are available. Represents the best odds market % across all bookies.\n* Added\
+    \ the expAdj field to RaceSummary, which contains a small adjustment made to all\
+    \ runners' EXP ratings, framing them more accurately within the ratings sphere\
+    \ of the race.\n\n### 1.0.3-beta (18/7/26)\n* Introduced the Get Meeting Speedmaps\
+    \ and Get Race Speedmap APIs.\n* Added support for the FK-TEST-API-KEY so that\
+    \ unsubscribed users can try the API.\n\n### 1.0.2-beta (8/7/26)\n* Introduced\
+    \ the Get Race Form and Get Horse Profile APIs.\n* Added states and grades filters\
+    \ to Get Upcoming Meetings API.\n\n### 1.0.1-beta (25/5/26)\n* Initial draft of\
+    \ the Get Upcoming Meetings and Get Meeting Summary APIs.\n"
+servers:
+- url: https://api.formking.com.au
+  description: Production API Endpoint
+paths:
+  /b2c/meetings/upcoming:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingSummaryLite'
+            text/csv:
+              schema:
+                type: string
+                description: 'CSV-formatted response. Use `?format=csv` or `Accept:
+                  text/csv` to request this format. Control the flattening level with
+                  `?flatten=meeting|race|entry`.'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: states
+        in: query
+        required: false
+        description: Filter meetings by state. Supports multiple comma-separated values.
+        schema:
+          type: string
+          enum:
+          - VIC
+          - NSW
+          - TAS
+          - WA
+          - ACT
+          - NT
+          - SA
+          - QLD
+          - NZ
+          - HK
+      - name: grades
+        in: query
+        required: false
+        description: Filter meetings by prizemoney grade. Supports multiple comma-separated
+          values. N = Non-TAB, C = Country, P = Provincial, M = Metropolitan (matches
+          both MMW and MSAT), MMW = Metro Midweek, MSAT = Metro Saturday.
+        schema:
+          type: string
+          enum:
+          - N
+          - C
+          - P
+          - M
+          - MMW
+          - MSAT
+      - name: statuses
+        in: query
+        required: false
+        description: "Filter meetings by status. Supports multiple comma-separated\
+          \ values. Excludes whole meetings whose `status` doesn't match. `FINAL_OR_RESULTED`\
+          \ is a convenience alias that expands to `FINAL_FIELDS,INTERIM_RESULTS,RESULTED`\
+          \ \u2014 handy for excluding non-final meetings."
+        schema:
+          type: string
+          enum:
+          - NOMINATIONS
+          - WEIGHTS
+          - FINAL_FIELDS
+          - INTERIM_RESULTS
+          - RESULTED
+          - ABANDONED
+          - UNKNOWN
+          - FINAL_OR_RESULTED
+      description: 'Returns a list of horse racing meetings for the next 7 days of
+        racing. Response includes basic meeting, race and runner details. This endpoint
+        can be used as an index of what is upcoming. Depending on the depth of data
+        required for your modelling, you might choose to call the Get Meeting Summary
+        API or the Get Race Form API (per race) after calling this endpoint. Cost:
+        1 credit per call (base cost).'
+      summary: Get Upcoming Meetings
+      tags:
+      - Meetings
+  /b2c/meetings/{meetingId}:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeetingSummary'
+            text/csv:
+              schema:
+                type: string
+                description: 'CSV-formatted response. Use `?format=csv` or `Accept:
+                  text/csv` to request this format. Control the flattening level with
+                  `?flatten=meeting|race|entry`.'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+      description: 'Returns a detailed summary of a specific horse racing meeting
+        including full race fields, and up to 12 recent performances with both weight-adjusted
+        and WFA ratings. Use this endpoint to retrieve a full meeting''s detail in
+        one go, otherwise if you require the full career form and benchmarking data
+        for each runner, call the Get Race Form API per race in the meeting. This
+        API is available to all subscription tiers, but for FK Lite accounts, the
+        performance ratings will be restricted to the most recent 5 races. Cost: 5
+        credits per call (base cost).'
+      summary: Get Meeting Summary
+      tags:
+      - Meetings
+  /b2c/horses/{horseId}:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HorseProfile'
+            text/csv:
+              schema:
+                type: string
+                description: 'CSV-formatted response. Use `?format=csv` or `Accept:
+                  text/csv` to request this format. Control the flattening level with
+                  `?flatten=meeting|race|entry`.'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: horseId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: racesOnly
+        in: query
+        required: false
+        description: If `true`, filters `pastEvents` to only include entries where
+          `race == true`. Spells, trials, scratchings and other non-race events are
+          excluded.
+        schema:
+          type: boolean
+          default: false
+      - name: numPastRaces
+        in: query
+        required: false
+        description: Truncates `pastEvents` once this many race-type events (where
+          `race == true`) have been included. Applied after `racesOnly`. If omitted
+          or negative, no truncation occurs.
+        schema:
+          type: integer
+          minimum: 0
+      - name: numBenchmarks
+        in: query
+        required: false
+        description: Nulls out the `benchmark` field on `pastEvents` beyond this count
+          (benchmarks are stripped from the response by `strip_nulls`). Applied after
+          `racesOnly` and `numPastRaces`. Defaults to 5 if omitted.
+        schema:
+          type: integer
+          minimum: 0
+          default: 5
+      description: 'Returns the full form profile for a specific horse, identified
+        by its breeding ID. Also includes sectional benchmarks, Weight For Age ratings
+        and other items related to performance. Use the `racesOnly`, `numPastRaces`
+        and `numBenchmarks` query parameters to reduce the depth of past events and
+        benchmarks returned, which will reduce your credit usage. This API is available
+        to FK Single State Pro and FK Pro subscription tiers. Cost: 2 credits base
+        cost (includes up to the 5 most recent BenchmarkedRun items at no additional
+        cost). For `numBenchmarks > 5`, an additional 0.5 credits per BenchmarkedRun
+        item returned. The resulting total is rounded up (ceil) to the nearest whole
+        credit before charging.'
+      summary: Get Horse Profile
+      tags:
+      - Horses
+  /b2c/meetings/{meetingId}/races/{raceId}:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RaceSummary'
+            text/csv:
+              schema:
+                type: string
+                description: 'CSV-formatted response. Use `?format=csv` or `Accept:
+                  text/csv` to request this format. Control the flattening level with
+                  `?flatten=meeting|race|entry`.'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: raceId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: includeScratchings
+        in: query
+        required: false
+        description: If `true`, includes scratched runners in the response and charges
+          variable credits per numBenchmarks. Defaults to `false`, which removes scratched
+          entries prior to fetching profiles and calculating credit costs.
+        schema:
+          type: boolean
+          default: false
+      - name: racesOnly
+        in: query
+        required: false
+        description: If `true`, filters `pastEvents` to only include entries where
+          `race == true`. Spells, trials, scratchings and other non-race events are
+          excluded.
+        schema:
+          type: boolean
+          default: false
+      - name: numPastRaces
+        in: query
+        required: false
+        description: Truncates `pastEvents` once this many race-type events (where
+          `race == true`) have been included. Applied after `racesOnly`. If omitted
+          or negative, no truncation occurs.
+        schema:
+          type: integer
+          minimum: 0
+      - name: numBenchmarks
+        in: query
+        required: false
+        description: Nulls out the `benchmark` field on `pastEvents` beyond this count
+          (benchmarks are stripped from the response by `strip_nulls`). Applied after
+          `racesOnly` and `numPastRaces`. Defaults to 5 if omitted.
+        schema:
+          type: integer
+          minimum: 0
+          default: 5
+      description: 'Returns a detailed summary of a specific race within a meeting,
+        with each entry enriched with the horse''s full form profile and performance
+        data. Use the `includeScratchings` query parameter (defaults to false) to
+        include or exclude scratched runners. Use the `racesOnly`, `numPastRaces`
+        and `numBenchmarks` query parameters to reduce the depth of past events and
+        benchmarks returned per entry, which will reduce your credit usage. This API
+        is available to all subscription tiers, however the benchmark data is not
+        available for FK Lite users, or for Single State Pro users outside their chosen
+        jurisdiction. Cost: 2 credits base cost (includes up to the 5 most recent
+        BenchmarkedRun items per runner at no additional cost). For `numBenchmarks
+        > 5`, an additional 0.5 credits per BenchmarkedRun item returned. The resulting
+        total is rounded up (ceil) to the nearest whole credit before charging.'
+      summary: Get Race Form
+      tags:
+      - Races
+  /b2c/meetings/{meetingId}/speedmaps/{raceId}:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Speedmap'
+            text/csv:
+              schema:
+                type: string
+                description: 'CSV-formatted response. Use `?format=csv` or `Accept:
+                  text/csv` to request this format. Control the flattening level with
+                  `?flatten=meeting|race|entry`.'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: raceId
+        in: path
+        required: true
+        schema:
+          type: string
+      description: 'Returns a single Speedmap document for a specific race within
+        a meeting. The Speedmap contains early speed metrics, expected tempo and per-runner
+        speed entries. This API is available to all subscription tiers. Cost: 1 credit
+        per call (base cost).'
+      summary: Get Race Speedmap
+      tags:
+      - Races
+  /b2c/meetings/{meetingId}/speedmaps:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Speedmap'
+            text/csv:
+              schema:
+                type: string
+                description: 'CSV-formatted response. Use `?format=csv` or `Accept:
+                  text/csv` to request this format. Control the flattening level with
+                  `?flatten=meeting|race|entry`.'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: meetingId
+        in: path
+        required: true
+        schema:
+          type: string
+      description: 'Returns an array of Speedmap documents for all races in a meeting,
+        fetched in parallel for optimal performance. Each Speedmap contains early
+        speed metrics, expected tempo and per-runner speed entries for the race. This
+        API is available to all subscription tiers. Cost: 5 credits per call (base
+        cost).'
+      summary: Get Meeting Speedmaps
+      tags:
+      - Meetings
+  /b2c/account/keys:
+    post:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/AccountInfo'
+                - $ref: '#/components/schemas/RevokeApiKeyResponse'
+        '400':
+          description: Bad request (invalid or missing parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid credentials"
+        '403':
+          description: "Forbidden \u2014 access denied"
+        '404':
+          description: Not found
+        '409':
+          description: Conflict (e.g. balance adjustment would go negative)
+        '500':
+          description: Internal server error
+        '503':
+          description: "Service Unavailable \u2014 unable to resolve product/tier\
+            \ configuration"
+      description: "Creates a new API key/account (`operation: createApiKey`), revokes\
+        \ the caller's own key (`operation: revokeApiKey`), or looks up the caller's\
+        \ account (`operation: getAccountInfo`, resolved by `uid` or `apiKey` \u2014\
+        \ equivalent to GET /b2c/account/keys/{uid}). Callers may only act on their\
+        \ own `uid`."
+      summary: Create, Revoke or Get API Key / Account
+      tags:
+      - Account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountKeysRequest'
+  /b2c/account/keys/{uid}:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountInfo'
+            text/csv:
+              schema:
+                type: string
+                description: 'CSV-formatted response. Use `?format=csv` or `Accept:
+                  text/csv` to request this format. Control the flattening level with
+                  `?flatten=meeting|race|entry`.'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: uid
+        in: path
+        required: true
+        schema:
+          type: string
+      description: 'Returns the caller''s `b2capi` account record, augmented with
+        two synthesised, non-persisted fields derived from the `b2capi_credits` ledger:
+        `pendingBundledBalance` (sum of `PENDING` BUNDLED ledger records for the user)
+        and `pendingCreditRecords` (the underlying ledger record(s)). Callers may
+        only view their own account.'
+      summary: Get Account Info
+      tags:
+      - Account
+  /b2c/usage:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/UsageLogItem'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/DailyUsageSummary'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: from
+        in: query
+        required: false
+        description: Start date for usage query in YYYY-MM-DD format (inclusive).
+          Defaults to 14 days ago.
+        schema:
+          type: string
+          format: date
+      - name: to
+        in: query
+        required: false
+        description: End date for usage query in YYYY-MM-DD format (inclusive). Defaults
+          to today.
+        schema:
+          type: string
+          format: date
+      - name: aggregate
+        in: query
+        required: false
+        description: 'Aggregation mode. `raw` (default) returns an array of `UsageLogItem`
+          records. `daily` returns an array of `DailyUsageSummary` records, one per
+          calendar day, instead of raw log entries. Alias: `view=daily`.'
+        schema:
+          type: string
+          enum:
+          - raw
+          - daily
+          default: raw
+      description: Returns credit usage log items for the authenticated user (or for
+        a specific user if called by an admin). Supports raw log records and daily
+        aggregated summaries via the `view` / `aggregate` query parameter, filtered
+        by date range.
+      summary: Get Usage Log
+      tags:
+      - Account
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: "API key required for all requests. \nFor demonstration purposes,\
+        \ you can use: `FK-TEST-API-KEY`\n"
+  schemas:
+    AccountInfo:
+      type: object
+      title: AccountInfo
+      properties:
+        uid:
+          type: string
+          description: Firebase uid of the account.
+        apiKey:
+          type: string
+          description: The account's active API key.
+        tier:
+          type: string
+          description: Current subscription tier (lite, single-state-pro, or pro).
+        keyType:
+          type: string
+          description: TRIAL or PRODUCTION.
+        bundledBalance:
+          type: integer
+          description: Remaining bundled subscription credits for the current period.
+        topupBalance:
+          type: integer
+          description: Remaining top-up credit balance (never expires).
+        bundledPeriodStart:
+          type: integer
+          description: Epoch milliseconds marking the start of the current bundled
+            credit period.
+        bundledPeriodEnd:
+          type: integer
+          description: Epoch milliseconds marking the end of the current bundled credit
+            period.
+        active:
+          type: boolean
+          description: Whether the account is currently active.
+        adminRevoked:
+          type: boolean
+          description: Whether the account was revoked by an admin (as opposed to
+            a self-service cancellation).
+        createdAt:
+          type: integer
+          description: Epoch seconds when the account/API key was created.
+        email:
+          type: string
+          description: Subscriber email address, if known.
+        authorities:
+          type: array
+          items:
+            type: string
+          description: Authorisation scopes granted, e.g. FK_PRO, FK_WEB.
+        pendingBundledBalance:
+          type: integer
+          description: "Synthesised, non-persisted field: the sum of `creditAmount`\
+            \ across all PENDING BUNDLED records in the b2capi_credits ledger for\
+            \ this uid \u2014 bundled credits already paid for but not yet rolled\
+            \ into bundledBalance."
+        pendingCreditRecords:
+          type: array
+          description: 'Synthesised, non-persisted field: the raw PENDING BUNDLED
+            b2capi_credits ledger record(s) backing pendingBundledBalance. Compare
+            pendingCreditRecords[0].tier to tier to detect a pending downgrade.'
+          items:
+            $ref: '#/components/schemas/PendingCreditRecord'
+      required:
+      - uid
+      - apiKey
+      - tier
+      - bundledBalance
+      - topupBalance
+      - active
+      description: A `b2capi` account record, augmented at query time with pending
+        bundled-credit information derived from the b2capi_credits ledger.
+    AccountKeysRequest:
+      title: AccountKeysRequest
+      oneOf:
+      - $ref: '#/components/schemas/CreateApiKeyRequest'
+      - $ref: '#/components/schemas/RevokeApiKeyRequest'
+      - $ref: '#/components/schemas/GetAccountInfoRequest'
+      discriminator:
+        propertyName: operation
+        mapping:
+          createApiKey: '#/components/schemas/CreateApiKeyRequest'
+          revokeApiKey: '#/components/schemas/RevokeApiKeyRequest'
+          getAccountInfo: '#/components/schemas/GetAccountInfoRequest'
+      description: 'Discriminated request body for POST /b2c/account/keys, selected
+        by the `operation` field: `createApiKey` (CreateApiKeyRequest), `revokeApiKey`
+        (RevokeApiKeyRequest), or `getAccountInfo` (GetAccountInfoRequest).'
+    BasicFluc:
+      type: object
+      title: BasicFluc
+      properties:
+        favourite:
+          type: boolean
+          description: Whether the horse was the market favourite at the time of this
+            fluctuation.
+        price:
+          type: number
+          description: The fixed odds price at this point in time.
+        time:
+          type: integer
+          description: Unix timestamp (milliseconds) representing the time of this
+            fluctuation.
+      required:
+      - favourite
+      - price
+      description: A single price fluctuation entry for a horse, recording whether
+        it was favourite, the price, and the time of the fluctuation.
+    BenchmarkedRun:
+      type: object
+      title: BenchmarkedRun
+      properties:
+        age:
+          type: integer
+          description: Racing age of the horse in years, at the time of this race.
+        atWeights:
+          type: number
+          description: Form King Performance Rating for this runner, represented at
+            the weight carried.
+        bestToteWin:
+          type: number
+          description: Best TAB TOTE win price across all 3 TOTEs.
+        bsp:
+          type: number
+          description: Betfair Starting Price.
+        dataStage:
+          type: string
+          description: Processing stage of the data. FULL_SECTIONAL_DATA is the final
+            stage of processing.
+        expectedRating:
+          type: number
+          description: A market expected rating for this runner, calculated using
+            the Betfair Starting Price, as well as the Form King Likely Winning Standard.
+        finishingSpeed:
+          type: number
+          description: The runner's final 600m in metres per second, represented as
+            a percentage of their to 600m speed in metres per second.
+        firmOrDrift:
+          type: number
+          description: The amount of firm or drift in fixed odds betting from open
+            to close, represented in % chance of winning and normalised for bookmaker
+            percentage change and scratchings.
+        meetingRunners:
+          type: integer
+          description: Number of runners at the meeting.
+        pir10:
+          type: integer
+          description: Position in running at the 1000m marker. Will not be present
+            for races < 1000m.
+        pir12:
+          type: integer
+          description: Position in running at the 1200m marker. Will not be present
+            for races < 1200m.
+        pir2:
+          type: integer
+          description: Position in running at the 200m marker.
+        pir4:
+          type: integer
+          description: Position in running at the 400m marker.
+        pir6:
+          type: integer
+          description: Position in running at the 600m marker.
+        pir8:
+          type: integer
+          description: Position in running at the 800m marker. Will not be present
+            for races < 800m.
+        raceRating:
+          type: number
+          description: Race rating at the weights carried. Represents winning time
+            as a rating, after adjustments.
+        raceRunners:
+          type: integer
+          description: Number of runners in this race.
+        railMetres:
+          type: number
+          description: Rail position from True (0) in metres.
+          example: 0.0
+        season:
+          type: string
+          description: Racing season identifier.
+        sections:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/BenchmarkedSection'
+          propertyNames:
+            $ref: '#/components/schemas/SectionKey'
+          x-additionalPropertiesName: SectionKey
+          description: "Performance metrics and rankings for all benchmarked sections\
+            \ of this race. Each section has an entry keyed by its section key (e.g.\
+            \ \"S-6\", \"2-F\", or \"4-2\"). Includes benchmarks vs the Form King\
+            \ All Average, Class, Track benchmarks as well as versus the race field,\
+            \ leader and winner times, plus race and meeting rankings within that\
+            \ section if available. You can actually synthesise further data points\
+            \ by combining some fields. For example, we provide vsClass and vsLeader,\
+            \ but not what the field leader did vsClass. If you calculate (vsClass\
+            \ \u2212 vsLeader), that will give you the field leader value against\
+            \ the FK Class benchmark for that section. This method applies to vsWinner\
+            \ and vsField as well, and the same can be done for All average and Track\
+            \ benchmarks."
+        sp:
+          type: number
+          description: Official Starting Price.
+        speedRating:
+          type: number
+          description: Form King Speed Rating for this run. 100 represents the horse
+            running to the class "par.", and these values are not tempo adjusted.
+        vsAllAvg:
+          type: number
+          description: Overall time performance for this runner, represented in lengths
+            +/- the Form King All Average benchmark. This figure is adjusted for track
+            speed, but not tempo.
+        vsClass:
+          type: number
+          description: Overall time performance for this runner, represented in lengths
+            +/- the Form King Class benchmark. This figure is adjusted for track speed,
+            but not tempo.
+        vsTrack:
+          type: number
+          description: Overall time performance for this runner, represented in lengths
+            +/- the Form King Track benchmark. This figure is adjusted for track speed,
+            but not tempo.
+        wfaRat:
+          type: number
+          description: Form King Performance Rating for this runner, adjusted to the
+            runner's Weight For Age allocation (see also wfaDiff).
+      required:
+      - age
+      - atWeights
+      - dataStage
+      - finishingSpeed
+      - firmOrDrift
+      - meetingRunners
+      - pir2
+      - pir4
+      - pir6
+      - raceRating
+      - raceRunners
+      - railMetres
+      - season
+      - sections
+      - sp
+      - speedRating
+      - vsAllAvg
+      - vsClass
+      - vsTrack
+      - wfaRat
+      description: A detailed record focused the performance aspect of a past race
+        for a horse. Contains the full complement of sectional benchmarks against
+        the Form King All Average, Class, Track benchmarks as well as versus the race
+        field, leader and winner, plus race and meeting rankings within that section
+        if available. Also contains Weight For Age performance ratings, the Form King
+        Speed Rating, finishing speed %, position in run data, various starting prices
+        and firm/drift information and more. Benchmarking data is only returned for
+        Form King Pro or Single State Pro subscriptions.
+    BenchmarkedSection:
+      type: object
+      title: BenchmarkedSection
+      properties:
+        meetRank:
+          type: integer
+          description: Raw split time ranking for this section at the meeting. Available
+            for some late sections only.
+        meetRatingRank:
+          type: integer
+          description: Distance-normalised (using lengths +/- the Form King Track
+            Benchmark) ranking for this horse within this section at the meeting.
+            Available for some late sections only.
+        raceRank:
+          type: integer
+          description: Raw split time ranking for this horse within this section in
+            this race. Available for some late sections only.
+        vsAllAvg:
+          type: number
+          description: Lengths +/- the Form King All Average Benchmark for this section.
+            Positive is above par.
+        vsClass:
+          type: number
+          description: Lengths +/- the Form King Class Benchmark for this section.
+            Positive is above par.
+        vsField:
+          type: number
+          description: Lengths +/- the field average for this section. Positive is
+            above par.
+        vsLeader:
+          type: number
+          description: Lengths +/- the field leader for this section. Positive is
+            above par.
+        vsTrack:
+          type: number
+          description: Lengths +/- the Form King Track Benchmark for this section.
+            Positive is above par.
+        vsWinner:
+          type: number
+          description: Lengths +/- the race winner for this section. In a dead heat
+            for 1st place, one race winner is chosen at random. Positive is above
+            par.
+      required:
+      - vsAllAvg
+      - vsClass
+      - vsField
+      - vsLeader
+      - vsTrack
+      - vsWinner
+      description: Sectional performance data for a specific section of a race (e.g.
+        S-6, 6-4, 12-F), including benchmarks vs the Form King All Average, Class,
+        Track benchmarks as well as versus the race field, leader and winner times,
+        plus race and meeting rankings within that section if available.
+    CreateApiKeyRequest:
+      type: object
+      title: CreateApiKeyRequest
+      properties:
+        operation:
+          type: string
+          enum:
+          - createApiKey
+        uid:
+          type: string
+          description: Firebase uid of the account to create (or re-activate).
+        tier:
+          type: string
+          description: Initial subscription tier. Defaults to `lite`. Determines the
+            initial bundledBalance via the product's includedApiCredits.
+        name:
+          type: string
+          description: Optional subscriber name.
+        email:
+          type: string
+          description: Optional subscriber email.
+        acceptedTermsVersion:
+          type: string
+          description: Version of the terms and conditions accepted by the user. Required
+            for self-service calls.
+        acceptedTermsDate:
+          type: integer
+          description: Epoch milliseconds when the terms were accepted. Required for
+            self-service calls.
+      required:
+      - operation
+      - uid
+      description: 'Request body for `operation: createApiKey` on POST /b2c/account/keys.
+        Creates a new API key/account, or re-activates an existing self-cancelled
+        one.'
+    DailyUsageSummary:
+      type: object
+      title: DailyUsageSummary
+      properties:
+        bundledUsed:
+          type: integer
+          description: Total bundled subscription credits deducted on this day.
+        byOperation:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/UsageOperationSummary'
+          description: Map of operation names to their call counts and credit totals
+            on this day.
+        creditsDeducted:
+          type: integer
+          description: Total credits deducted across all API calls on this day.
+        date:
+          type: string
+          description: Calendar date for this usage summary in YYYY-MM-DD format.
+          example: 1778803200000
+        topupUsed:
+          type: integer
+          description: Total top-up credits deducted on this day.
+        totalCalls:
+          type: integer
+          description: Total number of API calls made on this day.
+      required:
+      - bundledUsed
+      - byOperation
+      - creditsDeducted
+      - date
+      - topupUsed
+      - totalCalls
+      description: Aggregated daily summary of API requests, credits deducted, and
+        per-operation usage breakdown.
+    DualAcceptance:
+      type: object
+      title: DualAcceptance
+      properties:
+        barrier:
+          type: integer
+          description: Barrier drawn for this acceptance.
+        date:
+          type: integer
+          description: Scheduled race time as a Unix milliseconds timestamp (UTC).
+          example: 1778803200000
+        distance:
+          type: integer
+          description: Race distance in metres.
+        going:
+          type: string
+          description: Track condition at the time of acceptance.
+        meetingId:
+          type: string
+          description: Form King unique meeting identifier.
+          example: ABNY_150526
+        name:
+          type: string
+          description: Full name of the race.
+        raceId:
+          type: string
+          description: Unique identifier for this race.
+        raceNumber:
+          type: string
+          description: Race number on the card.
+        scratched:
+          type: boolean
+          description: Whether the horse was scratched from this acceptance.
+        trackName:
+          type: string
+          description: Name of the track.
+          example: Albany
+      required:
+      - barrier
+      - date
+      - distance
+      - going
+      - meetingId
+      - name
+      - raceId
+      - raceNumber
+      - scratched
+      - trackName
+      description: "A race acceptance entry for a dual acceptor \u2014 a horse entered\
+        \ in more than one upcoming or recent race. Contains enough information to\
+        \ allow consumers to link to or retrieve information about the additional\
+        \ acceptance."
+    EarlySpeedMetrics:
+      type: object
+      title: EarlySpeedMetrics
+      properties:
+        benchmark:
+          type: number
+          description: The Form King All Average benchmark at the determined settling
+            position, converted to a benchmark for today's race. RAW values are expressed
+            as lengths vs benchmark, with positive being above (faster than) par.
+          example: 2.8459540165665698
+        gap:
+          type: number
+          description: The distance from the lead horse, at the distance marker we've
+            determined to be the settling position. RAW values are in lengths.
+          example: 9.17
+        overall:
+          type: number
+          description: A holistic score for the early speed for the horse in the context
+            that this metrics entity is included. RAW values are always a speed figure
+            between 1-10.
+          example: 5.715477008283285
+        pir:
+          type: number
+          description: A score for the Position In Running (PIR), RAW values are the
+            horse's settling position at the 600m for races <= 1050m, otherwise the
+            first available section marker from the 1200m (one of 12, 10, 8).
+          example: 8.0
+        type:
+          type: string
+          description: This field will tell you the type of value for the fields this
+            metrics entity. "SPEED_FIGURE" means that any raw value has been converted
+            to a number between 1 and 10, for use with a speedmap bar. RAW means that
+            the value is a raw number, expressed on the natural scale for each metric.
+      required:
+      - overall
+      - type
+    ExpectedTempo:
+      type: object
+      title: ExpectedTempo
+      properties:
+        description:
+          type: string
+          description: The full expected tempo range, expressed as a textual description
+            ({min} to {max}). If min and max land in the same category, the description
+            will be a single value.
+          example: Average
+        max:
+          type: string
+          description: The maximum of the expected tempo range, expressed in lengths
+            +/- the Form King benchmark for this race, per 100m to the settling position
+            marker.
+          example: '-0.03'
+        maxCategory:
+          type: string
+          description: The maximum of the expected tempo range, expressed as a textual
+            description.
+          example: Average
+        min:
+          type: string
+          description: The minimum of the expected tempo range, expressed in lengths
+            +/- the Form King benchmark for this race, per 100m to the settling position
+            marker.
+          example: '-0.19'
+        minCategory:
+          type: string
+          description: The minimum of the expected tempo range, expressed as a textual
+            description.
+          example: Average
+      required:
+      - description
+      - maxCategory
+      - minCategory
+    Form:
+      type: object
+      title: Form
+      properties:
+        careerForm:
+          type: string
+          description: Summary of horse's career performance.
+          example: 2:0-0-1
+        classForm:
+          type: string
+          description: Summary of performance at the current class level.
+          example: 0:0-0-0
+        dead:
+          type: string
+          description: Career record on dead tracks.
+        distanceForm:
+          type: string
+          description: Summary of performance at today's distance.
+          example: 0:0-0-0
+        firm:
+          type: string
+          description: Career record on firm tracks.
+        firstUpForm:
+          type: string
+          description: Performance history in first-up runs.
+          example: 1:0-0-1
+        flatForm:
+          type: string
+          description: Performance history on flat tracks.
+          example: 2:0-0-1
+        goingForm:
+          $ref: '#/components/schemas/GoingForm'
+          description: Summarises win/place record for each official track condition/going
+            category.
+        good:
+          type: string
+          description: Career record on good tracks.
+        goodForm:
+          type: string
+          description: Performance summary on good tracks.
+          example: 0:0-0-0
+        heavy:
+          type: string
+          description: Career record on heavy tracks.
+        heavyForm:
+          type: string
+          description: Performance summary on heavy tracks.
+          example: 0:0-0-0
+        hurdleForm:
+          type: string
+          description: Performance history in hurdle races.
+          example: 0:0-0-0
+        insideBarriers:
+          type: string
+          description: Performance history from inside barriers.
+          example: 2:0-0-1
+        lengthsBeatenLastThree:
+          type: number
+          description: Total lengths beaten in the last three starts.
+          example: 6.02
+        longRaces:
+          type: string
+          description: Performance history in long distance races.
+          example: 0:0-0-0
+        middleBarriers:
+          type: string
+          description: Performance history from middle barriers.
+          example: 0:0-0-0
+        middleRaces:
+          type: string
+          description: Performance history in middle distance races.
+          example: 0:0-0-0
+        mileRaces:
+          type: string
+          description: Performance history in mile races.
+          example: 0:0-0-0
+        nightForm:
+          type: string
+          description: Performance history in night meetings.
+          example: 0:0-0-0
+        runs:
+          type: string
+          description: Total number of career starts.
+          example: 38x
+        secondUpForm:
+          type: string
+          description: Performance history in second-up runs.
+          example: 1:0-0-0
+        shortCourseRaces:
+          type: string
+          description: Performance history in short course races.
+          example: 2:0-0-1
+        similarDistance:
+          type: string
+          description: Performance history at similar distances.
+          example: 2:0-0-1
+        slow:
+          type: string
+          description: Career record on slow tracks.
+        soft:
+          type: string
+          description: Career record on soft tracks.
+        sprintRaces:
+          type: string
+          description: Performance history in sprint races.
+          example: 0:0-0-0
+        stayingRaces:
+          type: string
+          description: Performance history in staying races.
+          example: 0:0-0-0
+        steepleForm:
+          type: string
+          description: Performance history in steeplechase races.
+          example: 0:0-0-0
+        synthetic:
+          type: string
+          description: Career record on synthetic tracks.
+        thirdUpForm:
+          type: string
+          description: Performance history in third-up runs.
+          example: 0:0-0-0
+        todaysGoingForm:
+          type: string
+          description: 'Form string for today''s specific track condition (e.g. "3:
+            1-0-1-1"). Derived from goingForm keyed on today''s going category.'
+        todaysWeight:
+          type: string
+          description: Performance history carrying today's weight.
+          example: 1:0-0-1
+        trackAndDistanceForm:
+          type: string
+          description: Performance history at today's track and distance.
+          example: 0:0-0-0
+        trackForm:
+          type: string
+          description: Performance history at today's track.
+          example: 0:0-0-0
+        wet:
+          type: string
+          description: Career record on wet tracks.
+        wideBarriers:
+          type: string
+          description: Performance history from wide barriers.
+          example: 0:0-0-0
+        wonWithTodaysWeightOrHigher:
+          type: boolean
+          description: Boolean indicating if the horse has won carrying today's weight
+            or more.
+      required:
+      - careerForm
+      - classForm
+      - dead
+      - distanceForm
+      - firm
+      - firstUpForm
+      - flatForm
+      - goingForm
+      - good
+      - goodForm
+      - heavy
+      - heavyForm
+      - hurdleForm
+      - insideBarriers
+      - lengthsBeatenLastThree
+      - longRaces
+      - middleBarriers
+      - middleRaces
+      - mileRaces
+      - nightForm
+      - runs
+      - secondUpForm
+      - shortCourseRaces
+      - similarDistance
+      - slow
+      - soft
+      - sprintRaces
+      - stayingRaces
+      - steepleForm
+      - synthetic
+      - thirdUpForm
+      - todaysGoingForm
+      - todaysWeight
+      - trackAndDistanceForm
+      - trackForm
+      - wet
+      - wideBarriers
+      - wonWithTodaysWeightOrHigher
+      description: A summary of a horse's performance history across various dimensions
+        including career, class, distance, going, barrier, and jockey/trainer combinations.
+    FormSummary:
+      type: object
+      title: FormSummary
+      properties:
+        averageBeatenMargin:
+          type: number
+          description: The average beaten margin across all starts in this window.
+        averageFirmOrDrift:
+          type: number
+          description: The average firm or drift value across all starts in this window.
+        proportionalStakingROI:
+          type: number
+          description: Return on investment using proportional staking across all
+            starts in this window.
+        races:
+          type: integer
+          description: Total number of races included in this summary window.
+        seconds:
+          type: integer
+          description: Number of second-place finishes in this window.
+        thirds:
+          type: integer
+          description: Number of third-place finishes in this window.
+        wins:
+          type: integer
+          description: Number of wins in this window.
+        winsOverExpectations:
+          type: number
+          description: Wins above the market-implied expectation across all starts
+            in this window. A value of 1 means that wins = expectedWins. A value above
+            1 means that there have been more wins than expected wins, and below 1
+            is less than expected.
+      required:
+      - averageBeatenMargin
+      - averageFirmOrDrift
+      - proportionalStakingROI
+      - races
+      - seconds
+      - thirds
+      - wins
+      - winsOverExpectations
+      description: A summary of form for horses that ran in a past race, across a
+        defined window of subsequent starts (ALL, NEXT_10, or NEXT_20).
+    Gear:
+      type: object
+      title: Gear
+      properties:
+        change:
+          type: string
+          description: Whether this gear item is a change from the previous race.
+          example: ON_FIRST_TIME
+        gear:
+          type: string
+          description: Name of the gear item (e.g. Blinkers, Tongue Tie).
+          example: Gelded
+        'on':
+          type: boolean
+          description: Whether the gear is being worn in this race.
+          example: true
+      required:
+      - change
+      - gear
+      - 'on'
+      description: A single gear item, which contains information about the type of
+        gear, whether it is being worn currently, and whether there is a change to
+        this item within the context where it is being returned (typically, Race).
+    GetAccountInfoRequest:
+      type: object
+      title: GetAccountInfoRequest
+      properties:
+        operation:
+          type: string
+          enum:
+          - getAccountInfo
+        uid:
+          type: string
+          description: Firebase uid of the account to look up.
+        apiKey:
+          type: string
+          description: "Alternative to uid \u2014 look up the account by its API key."
+      required:
+      - operation
+      description: "Request body for `operation: getAccountInfo` \u2014 an alternative\
+        \ to GET /b2c/account/keys/{uid} that resolves the account by `apiKey` instead\
+        \ of `uid`."
+    GoingForm:
+      type: object
+      title: GoingForm
+      properties:
+        dead:
+          type: string
+          description: Career record on dead tracks.
+        fast:
+          type: string
+          description: Career record on fast tracks.
+        good:
+          type: string
+          description: Career record on good tracks.
+        heavy:
+          type: string
+          description: Career record on heavy tracks.
+        slow:
+          type: string
+          description: Career record on slow tracks.
+        synthetic:
+          type: string
+          description: Career record on synthetic tracks.
+      required:
+      - dead
+      - fast
+      - good
+      - heavy
+      - slow
+      - synthetic
+      description: A breakdown of a horse's win/place record by track condition category
+        (synthetic, fast, slow, dead, good, heavy).
+    Horse:
+      type: object
+      title: Horse
+      properties:
+        age:
+          type: integer
+          description: Current racing age of the horse in years.
+          example: 2
+        calculatedAge:
+          type: number
+          description: Precise age of the horse in years as calculated from its foal
+            date.
+          example: 2.6684931506849314
+        country:
+          type: string
+          description: Country of origin.
+          example: AUS
+        dam:
+          type: string
+          description: Name of the maternal parent.
+          example: Truancy
+        foalDate:
+          type: integer
+          description: Date the horse was foaled.
+          example: 1694649600000
+        name:
+          type: string
+          description: Registered name of the horse.
+          example: Quagmire
+        ownership:
+          type: string
+          description: Current owners of the horse.
+          example: Ms R C Parker, R J Pawsey, Miss C A Toose & Mrs L Manuel
+        previousName:
+          type: string
+          description: Optional - if the horse has raced under another name previously,
+            this field will contain the most recent prior name.
+        sire:
+          type: string
+          description: Name of the paternal parent.
+          example: Long Leaf
+        sireOfDam:
+          type: string
+          description: The sire of the dam (damsire).
+          example: I Am Invincible
+        trainingLocation:
+          type: string
+          description: Where the horse is currently trained.
+          example: Flemington
+        type:
+          type: string
+          description: 'The type of horse. Possible values are: F (Filly), M (Mare),
+            H (Entire), G (Gelding), C (Colt).'
+          example: G
+      required:
+      - dam
+      - name
+      - sire
+      description: Full horse details, including breeding, age, gender, ownership
+        and training location.
+    HorseLite:
+      type: object
+      title: HorseLite
+      properties:
+        dam:
+          type: string
+          description: Dam (mother) of the horse.
+          example: Truancy
+        name:
+          type: string
+          description: Name of the horse.
+          example: Quagmire
+        sire:
+          type: string
+          description: Sire (father) of the horse.
+          example: Long Leaf
+      required:
+      - dam
+      - name
+      - sire
+      description: Basic horse identification details included in lite meeting and
+        race summaries.
+    HorseProfile:
+      type: object
+      properties:
+        horse:
+          $ref: '#/components/schemas/Horse'
+        id:
+          type: string
+          description: Unique identifier for the horse.
+        mostRecentTrainer:
+          type: string
+          description: The most recent trainer of the horse.
+        pastEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/PastEvent'
+          description: Full career list of past race, trial, spell and scratched entries
+            for the horse.
+      required:
+      - id
+      description: A complete profile for a horse, including full past race, trial,
+        spell and scratching items, benchmarked sectional data and performance ratings.
+        Data depth will depend on subscription level.
+      title: HorseProfile
+    HorseResult:
+      type: object
+      title: HorseResult
+      properties:
+        barrier:
+          type: integer
+          description: Actual barrier jumped from.
+          example: 7
+        bestToteWin:
+          type: number
+          description: Best available TAB win price.
+          example: 3.2
+        betfairPlaceDiv:
+          type: number
+          description: Betfair place dividend.
+          example: 1.61
+        betfairStartingPrice:
+          type: number
+          description: Betfair SP (starting price).
+          example: 3.77
+        finishPosition:
+          type: integer
+          description: The official finishing position.
+          example: 2
+        jockey:
+          type: string
+          description: Jockey name in the race result.
+          example: Jamie Mott
+        margin:
+          type: number
+          description: Distance behind the winner.
+          example: 0.06
+        number:
+          type: integer
+          description: Saddlecloth number.
+          example: 1
+        officialFlucs:
+          type: array
+          items:
+            type: number
+          description: Official price fluctuations during betting.
+        startingPrice:
+          type: number
+          description: The official starting price.
+          example: 3.2
+        topFluc:
+          type: number
+          description: The highest price reached during betting.
+          example: 3.2
+        totePlace:
+          type: number
+          description: Final TAB place dividend.
+        toteWin:
+          type: number
+          description: Final TAB win dividend.
+        weight:
+          type: number
+          description: Weight carried in the race.
+          example: 58.0
+      required:
+      - barrier
+      - bestToteWin
+      - betfairPlaceDiv
+      - betfairStartingPrice
+      - finishPosition
+      - jockey
+      - margin
+      - number
+      - officialFlucs
+      - startingPrice
+      - topFluc
+      - totePlace
+      - toteWin
+      - weight
+      description: A single horse result, which contains information about the horse's
+        position in the race, starting price, margin, jockey, actual weight carried
+        and other relevant details. Often included within a RaceEntry entity.
+    JockeyForm:
+      type: object
+      title: JockeyForm
+      properties:
+        horseComboForm:
+          type: string
+          description: Performance history of this jockey/horse combination.
+          example: 0:0-0-0
+        horseComboPlacePercentage:
+          type: number
+          description: Place percentage for this jockey/horse combination.
+        horseComboWinPercentage:
+          type: number
+          description: Win percentage for this jockey/horse combination.
+        lastTwelveMonthForm:
+          type: string
+          description: Jockey's overall performance over the last 12 months.
+          example: 804:126-101-83
+        lastTwelveMonthPlacePercentage:
+          type: number
+          description: Jockey's place percentage over the last 12 months.
+          example: 38.55721393034826
+        lastTwelveMonthRides:
+          type: integer
+          description: Total number of rides for the jockey in the last 12 months.
+          example: 804
+        lastTwelveMonthWinPercentage:
+          type: number
+          description: Jockey's win percentage over the last 12 months.
+          example: 15.671641791044777
+        trackComboForm:
+          type: string
+          description: Performance history of this jockey at this track.
+          example: 0:0-0-0
+        trackComboWinPercentage:
+          type: number
+          description: Win percentage for this jockey at this track.
+      required:
+      - horseComboForm
+      - horseComboPlacePercentage
+      - horseComboWinPercentage
+      - lastTwelveMonthForm
+      - lastTwelveMonthPlacePercentage
+      - lastTwelveMonthRides
+      - lastTwelveMonthWinPercentage
+      - trackComboForm
+      - trackComboWinPercentage
+      description: Contains statistical information about a jockey's recent performance.
+    MeetingSummary:
+      type: object
+      properties:
+        date:
+          type: integer
+          description: Meeting date as a UNIX timestamp in milliseconds (UTC).
+          example: 1778803200000
+        id:
+          type: string
+          description: The Form King unique identifier for the meeting.
+        irrigation:
+          type: string
+          description: Details of any irrigation applied to the track.
+          example: Nil last 24hrs, 13mm last 7 days
+        penetrometer:
+          type: string
+          description: Track firmness reading, if available.
+          example: '0'
+        races:
+          type: array
+          items:
+            $ref: '#/components/schemas/RaceSummary'
+          description: List of races at this meeting.
+        railMetres:
+          type: number
+          description: Distance in metres that the rail is out from the true position.
+          example: 0.0
+        railPosition:
+          type: string
+          description: Textual description of the rail placement, including cutaway
+            or variable information.
+          example: 'True'
+        rainfall:
+          type: string
+          description: Amount of rain that has fallen leading up to the meeting, if
+            available.
+          example: 17mm last 24hrs, 22mm last 7 days
+        state:
+          type: string
+          description: The state or territory where the meeting is held.
+          example: WA
+        status:
+          type: string
+          description: Current status of the meeting (e.g., NOMINATIONS, WEIGHTS,
+            FINAL_FIELDS, RESULTED).
+          example: FINAL_FIELDS
+        tabMeeting:
+          type: boolean
+          description: Boolean indicating if this is a TAB professional meeting.
+          example: true
+        trackName:
+          type: string
+          description: Name of the racecourse holding this meeting.
+          example: Albany
+        updated:
+          type: integer
+          description: Timestamp of the last update to the meeting data within Form
+            King.
+          example: 1778835991506
+      required:
+      - id
+      - updated
+      description: A comprehensive summary of a racing meeting, including detailed
+        race and runner information. Full runner past form is not included, but the
+        most recent 12 starts is there, with weight-adjusted and WFA ratings.
+      title: MeetingSummary
+    MeetingSummaryLite:
+      type: object
+      properties:
+        date:
+          type: integer
+          description: Meeting date as a UNIX timestamp in milliseconds (UTC).
+          example: 1778803200000
+        going:
+          type: string
+          description: Official track condition (e.g., Fast, Good, Dead, Slow, Heavy,
+            Synthetic, Dirt).
+          example: Heavy
+        goingNumber:
+          type: integer
+          description: Numeric representation of the official track condition (1 -
+            10).
+          example: 10
+        id:
+          type: string
+          description: The Form King unique identifier for the meeting.
+        irrigation:
+          type: string
+          description: Details of any irrigation applied to the track.
+          example: Nil last 24hrs, 13mm last 7 days
+        penetrometer:
+          type: string
+          description: Track firmness reading, if available.
+          example: '0'
+        races:
+          type: array
+          items:
+            $ref: '#/components/schemas/RaceLite'
+          description: List of races at this meeting.
+        railMetres:
+          type: number
+          description: Distance in metres that the rail is out from the true position.
+          example: 0.0
+        railPosition:
+          type: string
+          description: Textual description of the rail placement, including cutaway
+            or variable information.
+          example: 'True'
+        rainfall:
+          type: string
+          description: Amount of rain that has fallen leading up to the meeting, if
+            available.
+          example: 17mm last 24hrs, 22mm last 7 days
+        state:
+          type: string
+          description: The state or territory where the meeting is held.
+          example: WA
+        status:
+          type: string
+          description: Current status of the meeting (e.g., NOMINATIONS, WEIGHTS,
+            FINAL_FIELDS, RESULTED).
+          example: FINAL_FIELDS
+        tabMeeting:
+          type: boolean
+          description: Boolean indicating if this is a TAB professional meeting.
+          example: true
+        trackName:
+          type: string
+          description: Name of the racecourse holding this meeting.
+          example: Albany
+      required:
+      - id
+      description: A lightweight summary of a racing meeting, typically used as an
+        index, for example - upcoming meetings.
+      title: MeetingSummaryLite
+    PastEvent:
+      type: object
+      title: PastEvent
+      properties:
+        adjustedForTodaysWeight:
+          type: number
+          description: The weightForAgeRating value, adjusted to the weight being
+            carried in today's race. See also RaceEntry::weightCarried. If consumed
+            outside a Race context, this value will not be present, as there would
+            be no weight to make an adjustment to.
+        barrier:
+          type: integer
+          description: Barrier/starting gate jumped from.
+          example: 4
+        benchmark:
+          $ref: '#/components/schemas/BenchmarkedRun'
+          description: A detailed record focused the performance aspect of this past
+            race. Contains the full complement of sectional benchmarks against the
+            Form King All Average, Class, Track benchmarks as well as versus the race
+            field, leader and winner, plus race and meeting rankings within that section
+            if available. Also contains Weight For Age performance ratings, the Form
+            King Speed Rating, finishing speed %, position in run data, various starting
+            prices and firm/drift information and more. This entity is considered
+            "Pro" data, and as such a Form King Pro or Single State Pro subscription
+            is required for benchmarking data to be returned.
+        benchmarkRating:
+          type: number
+          description: Official Handicap Rating (OHR) assigned to the horse prior
+            to this race. May be omitted or 0 if no OHR had been assigned (e.g. maidens).
+        bsp:
+          type: number
+          description: Betfair Starting Price.
+          example: 1.95581612
+        country:
+          type: string
+          description: Country where the race was held.
+          example: Australia
+        date:
+          type: integer
+          description: Race date as a Unix timestamp (milliseconds since Epoch).
+          example: 1782223200000
+        daysSincePreviousRace:
+          type: integer
+          description: Days elapsed since the horse's prior race.
+        distance:
+          type: integer
+          description: Race distance in metres.
+          example: 1100
+        fieldStrength:
+          type: number
+          description: Strength of the field in this past race.
+          example: 42.35230699022721
+        finishPosition:
+          type: integer
+          description: Official finishing position in this race.
+          example: 1
+        flucs:
+          type: array
+          items:
+            $ref: '#/components/schemas/BasicFluc'
+          description: Price fluctuations during betting for this race.
+        gear:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gear'
+          description: Gear worn by the horse in this race.
+        going:
+          type: string
+          description: Track condition for this race.
+          example: Dead 5
+        horse:
+          type: string
+          description: Name of the horse in this past event.
+          example: Omolong
+        jockey:
+          type: string
+          description: Jockey who rode in this past event.
+          example: Tommy Berry
+        margin:
+          type: number
+          description: Distance beaten (or winning margin).
+          example: 1.24
+        meetingId:
+          type: string
+          description: Form King unique meeting identifier.
+          example: warwick-farm-20260624
+        nightMeeting:
+          type: boolean
+          description: Whether this was a night meeting.
+        numRunners:
+          type: integer
+          description: Number of runners in this race.
+          example: 7
+        placings:
+          type: array
+          items:
+            $ref: '#/components/schemas/Placing'
+          description: The top 4 placings for this past event. Omitted for spell PastEvent
+            records.
+        pos1200m:
+          type: integer
+          description: Position in running at the 1200m mark. Will not be present
+            for race distances under 1200m.
+        pos400m:
+          type: integer
+          description: Position in running at the 400m mark.
+          example: 5
+        pos800m:
+          type: integer
+          description: Position in running at the 800m mark. Will not be present for
+            race distances under 800m.
+          example: 6
+        posSettling:
+          type: integer
+          description: Position in running at the settling point. This is typically
+            between 200-400m after the start, or the 800m if no PIR was taken earlier.
+          example: 6
+        race:
+          type: boolean
+          description: A boolean field denoting whether this PastEvent was a race
+            (as opposed to a trial, a spell or a scratching).
+          example: true
+        raceId:
+          type: string
+          description: Unique identifier for this race.
+          example: W FM_240626_2
+        raceInCareer:
+          type: integer
+          description: Career start number for this race.
+          example: 1
+        raceInPrep:
+          type: integer
+          description: Preparation start number for this race.
+          example: 1
+        raceName:
+          type: string
+          description: Full name of the race.
+          example: 2yo C&G Hcp
+        raceNumber:
+          type: integer
+          description: Race number on the card.
+          example: 2
+        raceType:
+          type: string
+          description: Type of race (e.g., Flat, Hurdle).
+          example: Flat
+        ratingScale:
+          type: string
+          description: The rating scale used (e.g., FORM_KING).
+          example: FORM_KING
+        runnerNumber:
+          type: integer
+          description: Saddlecloth number in this race.
+          example: 7
+        scratched:
+          type: boolean
+          description: Whether the horse was scratched from this race.
+        sectionalDistance:
+          type: integer
+          description: Distance over which the sectional time was recorded.
+          example: 600
+        sectionalTimeInMillis:
+          type: integer
+          description: Sectional time recorded in milliseconds.
+          example: 34030
+        spell:
+          type: boolean
+          description: Whether the horse had a spell before this race.
+        spellDays:
+          type: integer
+          description: Number of days the horse was spelled before this race.
+        startingPrice:
+          type: number
+          description: Official starting price for this race.
+          example: 1.7
+        state:
+          type: string
+          description: Australian state where the race was held.
+          example: NSW
+        subsequentForm:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/FormSummary'
+          propertyNames:
+            type: string
+            enum:
+            - ALL
+            - NEXT_10
+            - NEXT_20
+          x-additionalPropertiesName: SubsequentFormKey
+          description: A dictionary of subsequent form summaries for horses that ran
+            in this race. Keys are one of ALL, NEXT_10, or NEXT_20, representing the
+            window of subsequent starts included in the summary.
+        tabMeeting:
+          type: boolean
+          description: Whether this was a TAB meeting.
+          example: true
+        timeInMillis:
+          type: integer
+          description: Total race time in milliseconds.
+          example: 64310
+        totalPrizemoney:
+          type: number
+          description: Total prize money for this race.
+          example: 58500.0
+        track:
+          type: string
+          description: Name of the track.
+          example: Warwick Farm
+        trackCode:
+          type: string
+          description: Four-character track code.
+          example: W FM
+        trackSpeed:
+          type: number
+          description: Track speed rating for this race.
+          example: 3.7
+        trackSpeedVerified:
+          type: boolean
+          description: Whether the track speed has been verified.
+          example: true
+        trainer:
+          type: string
+          description: Trainer of the horse in this race.
+          example: Chris Waller
+        trial:
+          type: boolean
+          description: Whether this was a barrier trial rather than a race.
+        weight:
+          type: number
+          description: Weight carried in this race.
+          example: 57.0
+        weightForAgeRating:
+          type: number
+          description: The Form King performance rating achieved in this race, adjusted
+            to the horse's WFA allocation on that date.
+          example: 91.73080057898598
+        wfaDiff:
+          type: number
+          description: Difference in kilograms from the Form King Weight For Age allocation
+            at the time of this race. We use a modified version of the Standard WFA
+            scale.
+          example: 10.629740151899995
+      required:
+      - barrier
+      - date
+      - daysSincePreviousRace
+      - distance
+      - gear
+      - raceNumber
+      - ratingScale
+      - tabMeeting
+      - trackSpeed
+      - trackSpeedVerified
+      description: A single past race, trial, scratching or spell entry for a horse.
+        May contain benchmarking data, if available and authorised.
+    PeakRating:
+      type: object
+      title: PeakRating
+      properties:
+        atWeights:
+          type: number
+          description: Rating achieved at the weight carried.
+          example: 75.45424739787157
+        atWfa:
+          type: number
+          description: Weight-for-age adjusted rating.
+          example: 82.38293019028498
+        raceId:
+          type: string
+          description: Form King race ID of the race where the rating was achieved.
+          example: FLEM_081125_1
+        ratingScale:
+          type: string
+          description: The rating scale used (e.g. Form King).
+          example: FORM_KING
+        type:
+          type: string
+          description: Type of rating.
+          example: BEST_WFA_LAST_12M
+      required:
+      - atWeights
+      - atWfa
+      - raceId
+      - ratingScale
+      - type
+      description: Contains information about a peak rating achieved by the horse.
+        A peak rating might be for their career, or last 12 months, or this preparation.
+    PendingCreditRecord:
+      type: object
+      title: PendingCreditRecord
+      properties:
+        uid:
+          type: string
+          description: Firebase uid the record belongs to.
+        invoiceNo:
+          type: string
+          description: Xero invoice number that generated this record (idempotency
+            key together with uid).
+        invoiceId:
+          type: string
+          description: Xero invoice UUID.
+        type:
+          type: string
+          description: BUNDLED or TOPUP.
+        status:
+          type: string
+          description: PENDING, CONSUMED, or CANCELLED.
+        creditAmount:
+          type: integer
+          description: Number of credits this record represents.
+        sku:
+          type: string
+          description: Product SKU the invoice line item was for.
+        tier:
+          type: string
+          description: Subscription tier this record applies to (BUNDLED records only).
+        bundledPeriodStart:
+          type: integer
+          description: Epoch milliseconds marking when this record's period becomes
+            active.
+        bundledPeriodEnd:
+          type: integer
+          description: Epoch milliseconds marking when this record's period ends.
+      required:
+      - uid
+      - invoiceNo
+      - type
+      - status
+      - creditAmount
+      description: A single PENDING (or otherwise) entry from the b2capi_credits ledger,
+        representing a credit allocation tied to one invoice.
+    Placing:
+      type: object
+      title: Placing
+      properties:
+        barrier:
+          type: integer
+          description: Actual barrier jumped from.
+          example: 5
+        finishPosition:
+          type: integer
+          description: Official finishing position.
+          example: 1
+        finishPositionDisplay:
+          type: string
+          description: Display string for finishing position.
+          example: 1st
+        horse:
+          type: string
+          description: Name of the horse.
+          example: Obambulate
+        jockey:
+          type: string
+          description: Name of the jockey.
+          example: Craig Williams
+        margin:
+          type: number
+          description: Margin from the winner.
+        thisHorse:
+          type: boolean
+          description: Boolean indicating if this placing is the subject horse.
+        weight:
+          type: number
+          description: Weight carried.
+          example: 58.0
+      required:
+      - barrier
+      - finishPosition
+      - finishPositionDisplay
+      - horse
+      - jockey
+      - margin
+      - thisHorse
+      - weight
+      description: Used in PastEvent records to represent the top few finishers in
+        a race. Contains only basic runner and result information.
+    RaceEntry:
+      type: object
+      title: RaceEntry
+      properties:
+        acceptances:
+          type: array
+          items:
+            $ref: '#/components/schemas/DualAcceptance'
+          description: Details of multiple race acceptances. Handy for dual acceptors.
+        apprenticeClaim:
+          type: number
+          description: Weight allowance for the apprentice jockey. In non-claiming
+            races, this can be 0 even if the jockey would otherwise have a claim.
+        apprenticeJockey:
+          type: boolean
+          description: Boolean indicating if an apprentice is riding this horse.
+        averagePrizeMoney:
+          type: number
+          description: Average prize money earned per start for this horse.
+          example: 20500.0
+        barrier:
+          type: integer
+          description: Balloted starting gate position. Note - scratchings may affect
+            the actual barrier jumped from.
+          example: 1
+        benchmarkRating:
+          type: number
+          description: Official Handicap Rating (OHR) assigned to the horse prior
+            to this race.
+        breedingId:
+          type: string
+          description: Form King unique identifier for this horse.
+          example: 2022_exceed-and-excel_wayborn
+        daysSinceLastRace:
+          type: integer
+          description: Days elapsed since the horse's previous race, taken from the
+            race date.
+          example: 143
+        daysSinceLastWin:
+          type: integer
+          description: Days elapsed since the horse's last victory, taken from the
+            race date.
+        distanceChange:
+          type: string
+          description: Change in distance from the previous race.
+        dualAcceptor:
+          type: boolean
+          description: Boolean indicating if the horse is accepted in multiple upcoming/recent
+            races. If this is true, the details will be in the "acceptances" data
+            field.
+        emergency:
+          type: boolean
+          description: Boolean indicating if the horse is an emergency runner.
+        firstStarter:
+          type: boolean
+          description: Boolean indicating if the horse is having its first ever race
+            start.
+        form:
+          $ref: '#/components/schemas/Form'
+          description: Performance statistics for this horse across various conditions
+            and race types.
+        gear:
+          type: array
+          items:
+            $ref: '#/components/schemas/Gear'
+          description: Current gear being worn by the horse.
+        gearChanges:
+          type: string
+          description: Changes in this runner's applied gear for this race.
+          example: 'Gelded '
+        homeTrack:
+          type: string
+          description: String indicating the track code of the horse's home track
+            (derived from Horse::trainingLocation)
+          example: FLEM
+        horse:
+          $ref: '#/components/schemas/Horse'
+          description: The horse breeding, ownership and other relevant details.
+        horseResult:
+          $ref: '#/components/schemas/HorseResult'
+          description: Result data for this horse. Available once the race has been
+            resulted, which is typically within 15 minutes after the race has finished.
+        jockey:
+          type: string
+          description: Full name of the jockey.
+          example: Rocky Cheung
+        jockeyForm:
+          $ref: '#/components/schemas/JockeyForm'
+          description: Performance statistics for the jockey riding this horse.
+        jockeysOnlyRideAtMeeting:
+          type: boolean
+          description: Boolean indicating if the jockey has no other rides at the
+            meeting.
+        metadata:
+          $ref: '#/components/schemas/RaceEntryMetadata'
+          description: Additional metadata for this entry, including peak ratings.
+        number:
+          type: integer
+          description: Saddlecloth (TAB) number for this entry.
+          example: 9
+        odds:
+          $ref: '#/components/schemas/RaceEntryOdds'
+          description: Live market odds information for this entry. Only present if
+            an odds market has been obtained from our provider; data can be up to
+            15 minutes delayed.
+        pastEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/PastEvent'
+          description: Past form for this horse, including weight-adjusted and WFA
+            ratings, and optionally benchmarking data. Depth depends on user subscription
+            tier and API being called.
+        raceEntryId:
+          type: string
+          description: Unique Form King identifier for the race entry, comprised of
+            raceId and saddlecloth number.
+          example: PAKM_150526_1_1
+        raceInPrep:
+          type: integer
+          description: The run number within the current preparation. A preparation/spell
+            boundary in Form King is 80 days.
+          example: 1
+        ratings:
+          $ref: '#/components/schemas/RaceEntryRatings'
+          description: A convenience object containing Form King ratings for this
+            entry, including the Neural rating and Market Expected rating (when odds
+            are available).
+        recentTrials:
+          type: array
+          items:
+            $ref: '#/components/schemas/PastEvent'
+          description: Recent barrier trial results for this horse. A trial is present
+            here if it has occurred since the last race or 80+ day spell.
+        ridingWeight:
+          type: number
+          description: Weight in kilograms that the jockey is expected to ride at.
+            This is the value stored in the Racing Australia system.
+          example: 55.0
+        scratched:
+          type: boolean
+          description: Boolean indicating if the horse has been officially withdrawn
+            from the race.
+        totalPrizeMoney:
+          type: number
+          description: Total career prize money earned by this horse, prior to the
+            race taking place.
+          example: 41000.0
+        trackSpeedGoingForm:
+          $ref: '#/components/schemas/GoingForm'
+          description: Summarises win/place record for each FK Track Speed category.
+            This makes for a more accurate and complete view of form across different
+            track grades than the official goingForm data.
+        trainer:
+          type: string
+          description: Full name of the trainer or training partnership.
+          example: Jonathon Jachmann
+        trainerForm:
+          $ref: '#/components/schemas/TrainerForm'
+          description: Performance statistics for the trainer of this horse.
+        trainersOnlyRaceAtMeeting:
+          type: boolean
+          description: Boolean indicating if the trainer has no other runners at the
+            meeting.
+        weight:
+          type: number
+          description: Weight (in kilograms) assigned to the entry for the race. To
+            determine weight carried, you need to incorporate the apprenticeClaim
+            and ridingWeight fields.
+          example: 58.0
+        weightCarried:
+          type: number
+          description: Actual weight carried in kilograms, including jockey and gear.
+          example: 58.0
+        wfaDiff:
+          type: number
+          description: Difference in kilograms from the Form King Weight For Age allocation
+            at the time of this race. We use a modified version of the Standard WFA
+            scale.
+          example: 10.082462134299995
+      required:
+      - barrier
+      - horse
+      - number
+      - scratched
+      - trainer
+      description: A runner entry found in race/meeting summary responses, containing
+        the full form details for this runner in the relevant race. If subscription
+        tier allows, this can be populated with full career form and benchmarking
+        data.
+    RaceEntryLite:
+      type: object
+      title: RaceEntryLite
+      properties:
+        barrier:
+          type: integer
+          description: Barrier drawn for this runner.
+          example: 1
+        horse:
+          $ref: '#/components/schemas/HorseLite'
+          description: Basic horse details including name, sire and dam.
+        jockey:
+          type: string
+          description: Name of the jockey.
+          example: Rocky Cheung
+        number:
+          type: integer
+          description: Saddlecloth/runner number.
+          example: 9
+        scratched:
+          type: boolean
+          description: Whether this runner has been scratched.
+        trainer:
+          type: string
+          description: Name of the trainer.
+          example: Jonathon Jachmann
+      required:
+      - barrier
+      - horse
+      - number
+      - scratched
+      - trainer
+      description: A lightweight runner entry for use in meeting summary lite responses,
+        containing only the key identification and status fields.
+    RaceEntryMetadata:
+      type: object
+      title: RaceEntryMetadata
+      properties:
+        peakRatings:
+          type: array
+          items:
+            $ref: '#/components/schemas/PeakRating'
+          description: Collection of peak ratings achieved by the horse. This field
+            has been deprecated in favour of RaceEntry::ratings.
+          deprecated: true
+      required: []
+      description: Contains auxiliary metadata about the RaceEntry item. At the moment,
+        peakRatings is the only information contained within.
+    RaceEntryOdds:
+      type: object
+      title: RaceEntryOdds
+      properties:
+        avgNow:
+          type: number
+          description: The average corporate bookmaker price at the time of the most
+            recent fluctuation. See 'timestamp' for when this fluc occurred.
+        avgOpen:
+          type: number
+          description: The average corporate bookmaker price at market open, which
+            is typically around 15-20 minutes after the TAB market opens. As such,
+            some artificially high TAB open prices are not included as they've already
+            been knocked off by this point.
+        bestBookies:
+          type: array
+          items:
+            type: string
+          description: A list of lowercase bookmaker names that are currently offering
+            the best price (from Betwatch's bookmakerLower field).
+        bestNow:
+          type: number
+          description: The best corporate bookmaker price at the time of the most
+            recent fluctuation. See 'timestamp' for when this fluc occurred.
+        firmOrDrift:
+          type: number
+          description: The % change in the market's opinion of this runner since open.
+            A value of -5 would mean that the runner has drifted by 5% chance of winning
+            (say from $4 - a 25% chance to $5 - a 20% chance). This value is normalised
+            for bookmaker % change and scratchings, making it a great indicator of
+            where money is (or isn't) being placed.
+        timestamp:
+          type: integer
+          description: The time of the latest fluctuation, as a Unix timestamp in
+            UTC (milliseconds since Epoch).
+      required:
+      - avgNow
+      - avgOpen
+      - bestBookies
+      - bestNow
+      - firmOrDrift
+      - timestamp
+      description: An object containing basic live market odds information for the
+        RaceEntry. This field will only be present if we have obtained an odds market
+        from our provider, and the data contained within can be up to 15 minutes delayed
+        from the live odds.
+    RaceEntryRatings:
+      type: object
+      title: RaceEntryRatings
+      properties:
+        exp:
+          type: number
+          description: The runner's market expected rating on the Form King scale.
+            This value is calculated from the market opinion, using the RaceEntry::odds::bestNow
+            value, and the Race::lws (likely winning standard) and Race::expAdj value,
+            which helps frame the expected rating nicely within past ratings for today's
+            race.
+        neural:
+          type: number
+          description: The Form King Neural rating. This is not a measure of performance,
+            rather a collection of points awarded to runners based on traditional
+            form and statistics. It includes jockey, trainer, track, distance, beaten
+            margin and other similar items.
+        peak:
+          type: number
+          description: The runner's career peak rating on the Form King scale, adjusted
+            to weight carried today.
+        peak12m:
+          type: number
+          description: The runner's 12 month peak rating on the Form King scale, adjusted
+            to weight carried today.
+      required: []
+      description: A convenience object that contains a series of ratings for the
+        RaceEntry in today's race. Contains the Form King Neural Rating, and the Market
+        Expected Rating (EXP, when odds market is available).
+    RaceLite:
+      type: object
+      title: RaceLite
+      properties:
+        distance:
+          type: integer
+          description: Race distance in metres.
+          example: 1100
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/RaceEntryLite'
+          description: List of runners in this race with basic details.
+        going:
+          type: string
+          description: Track condition description.
+          example: Heavy
+        goingNumber:
+          type: integer
+          description: Numeric track condition value.
+          example: 10
+        lws:
+          type: number
+          description: The Likely Winning Standard value shown in the Form Guide,
+            representing the computer's guess of the strength of this race.
+        name:
+          type: string
+          description: Full name of the race.
+          example: Western Corporate Project Management Mdn
+        nightMeeting:
+          type: boolean
+          description: Whether this is a night meeting.
+        number:
+          type: integer
+          description: Race number on the card.
+          example: 1
+        prizemoneyGrade:
+          type: string
+          description: Prizemoney grade classification.
+          example: P
+        raceId:
+          type: string
+          description: Unique identifier for this race.
+          example: ABNY_150526_1
+        raceType:
+          type: string
+          description: Type of race (e.g., Flat, Hurdle).
+          example: Flat
+        restrictions:
+          type: string
+          description: Age or gender restrictions for this race.
+          example: MDN.2+..S
+        status:
+          type: string
+          description: Current status of the race (e.g., OPEN, CLOSED, FINAL).
+          example: FINAL_FIELDS
+        totalPrizeMoney:
+          type: number
+          description: Total prize money for this race.
+          example: 19600.0
+        trackCode:
+          type: string
+          description: Four-character track code.
+          example: ABNY
+      required:
+      - distance
+      - entries
+      - going
+      - goingNumber
+      - name
+      - nightMeeting
+      - number
+      - prizemoneyGrade
+      - raceId
+      - raceType
+      - restrictions
+      - status
+      - totalPrizeMoney
+      - trackCode
+      description: A lightweight race summary for use in meeting summary lite responses,
+        containing race details and a list of lite runner entries.
+    RaceSummary:
+      type: object
+      properties:
+        date:
+          type: integer
+          description: Race date as a Unix timestamp (milliseconds since Epoch).
+          example: 1778819100000
+        direction:
+          type: string
+          description: The direction of racing (CLOCKWISE, ANTICLOCKWISE).
+          example: ANTICLOCKWISE
+        distance:
+          type: integer
+          description: Official race distance in metres.
+          example: 1100
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/RaceEntry'
+          description: List of entries (runners) in this race, enriched with horse
+            profile data where available.
+        expAdj:
+          type: number
+          description: A uniform adjustment applied to every runner's raw EXP rating,
+            to help frame the EXP more accurately in competitive fields.
+        fieldStrength:
+          type: number
+          description: Calculated strength of the field. This value has been deprecated
+            in favour of lws (Likely Winning Standard).
+          example: 55.0
+          deprecated: true
+        going:
+          type: string
+          description: Official track condition for this specific race (e.g. Synthetic,
+            Dirt, Fast, Good, Dead, Slow, Heavy).
+          example: Heavy
+        goingNumber:
+          type: integer
+          description: Numeric value representing the official track condition.
+          example: 10
+        lastUpdated:
+          type: integer
+          description: Unix timestamp in milliseconds (UTC) representing the data
+            update timestamp for this specific race.
+          example: 1778835962723
+        lws:
+          type: number
+          description: The Likely Winning Standard value shown in the Form Guide,
+            representing the computer's guess of the strength of this race.
+        meetingId:
+          type: string
+        name:
+          type: string
+          description: The name of the race.
+          example: Western Corporate Project Management Mdn
+        nightMeeting:
+          type: boolean
+          description: Boolean indicating whether the meeting is being run at night.
+        nomsRaceNo:
+          type: integer
+          description: Race numbers almost always change from NOMINATIONS/WEIGHTS
+            stage to FINAL_FIELDS. This is a handy reference back to the pre-acceptances
+            race number.
+        numRunners:
+          type: integer
+          description: Number of runners in the race.
+          example: 10
+        number:
+          type: integer
+          description: The race number on the card.
+          example: 1
+        prizemoneyGrade:
+          type: string
+          description: Grade/category of the race, based on prizemoney. Possible values
+            are N (Non-TAB), C (Country), P (Provincial), MMW (Metro Midweek), MSAT
+            (Metro Saturday).
+          example: P
+        raceId:
+          type: string
+          description: Form King unique identifier for the race.
+          example: ABNY_150526_1
+        raceType:
+          type: string
+          description: Type of race (e.g., Flat, Hurdle, Steeple).
+          example: Flat
+        railPosition:
+          type: string
+          description: Textual description of the rail placement, including cutaway
+            or variable information.
+          example: Out 3m Entire Circuit
+        restrictions:
+          type: string
+          description: A string containing class, age, gender and weight restrictions
+            for the race.
+          example: MDN.2+..S
+        stageId:
+          type: string
+          deprecated: true
+        startTime:
+          type: string
+          description: Scheduled start time as a string.
+          example: 12:25pm
+        status:
+          type: string
+          description: Status of the race (e.g., NOMINATIONS, WEIGHTS, FINAL_FIELDS,
+            INTERIM_RESULTS, RESULTED, ABANDONED).
+          example: FINAL_FIELDS
+        syntheticHold:
+          type: number
+          description: A decimal value representing the combined market percentage
+            of the best odds across all supported bookmakers. A 120% synthetic hold
+            would be represented as 1.2. Multiply by 100 to get the market %. Only
+            present when odds are available.
+        tabMeeting:
+          type: boolean
+          description: Indicates whether the meeting is graded as TAB professional
+            or not.
+          example: true
+        totalPrizeMoney:
+          type: number
+          description: Total prize money pool for the race in Australian dollars (AUD),
+            less any contribution to the Jockeys Trust or other charity.
+          example: 19600.0
+        trackCode:
+          type: string
+          description: The 4 character track code for the circuit that this race is
+            being run on.
+          example: ABNY
+        trackName:
+          type: string
+          description: Display name of the track hosting the meeting.
+          example: Albany
+      required:
+      - distance
+      - entries
+      - going
+      - goingNumber
+      - name
+      - nightMeeting
+      - number
+      - prizemoneyGrade
+      - raceId
+      - raceType
+      - restrictions
+      - status
+      - totalPrizeMoney
+      - trackCode
+      description: A detailed summary of a single race, including all runner information.
+        Each entry can be enriched with the horse's benchmark ratings and full past
+        form history from their horse profile. Data depth will depend on subscription
+        level.
+      title: RaceSummary
+    RevokeApiKeyRequest:
+      type: object
+      title: RevokeApiKeyRequest
+      properties:
+        operation:
+          type: string
+          enum:
+          - revokeApiKey
+        uid:
+          type: string
+          description: Firebase uid of the account to revoke.
+        apiKey:
+          type: string
+          description: "Alternative to uid \u2014 the API key of the account to revoke."
+      required:
+      - operation
+      description: 'Request body for `operation: revokeApiKey` on POST /b2c/account/keys.
+        Revokes the caller''s own API key and cancels any PENDING bundled ledger records.'
+    RevokeApiKeyResponse:
+      type: object
+      title: RevokeApiKeyResponse
+      properties:
+        uid:
+          type: string
+        active:
+          type: boolean
+        adminRevoked:
+          type: boolean
+        adminRevokedAt:
+          type: integer
+          description: Present only when revoked by an admin.
+      required:
+      - uid
+      - active
+      - adminRevoked
+      description: Response body confirming an API key revocation, including whether
+        it was an admin revoke or a self-service cancellation.
+    SectionKey:
+      type: string
+      enum:
+      - S-12
+      - S-10
+      - S-8
+      - S-6
+      - S-4
+      - S-2
+      - 12-10
+      - 10-8
+      - 8-6
+      - 6-4
+      - 4-2
+      - 8-4
+      - 8-2
+      - 12-F
+      - 10-F
+      - 8-F
+      - 6-F
+      - 4-F
+      - 2-F
+      title: SectionKey
+      description: A unique key representing a specific section of a race (e.g., 'S-6'
+        for Start to 600m, '12-F' for Last 1200m).
+    Speedmap:
+      type: object
+      title: Speedmap
+      properties:
+        custom:
+          type: boolean
+          description: Whether this speedmap has been manually customised by a Form
+            King user. Defaults to false for all owner="formking" default maps.
+        direction:
+          type: string
+          description: The running direction of the race (e.g. CLOCKWISE, ANTI_CLOCKWISE).
+          example: CLOCKWISE
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpeedmapEntry'
+          description: List of per-runner SpeedmapEntry items, one per runner in the
+            race.
+        expectedTempo:
+          $ref: '#/components/schemas/ExpectedTempo'
+          description: An object containing the expected race tempo, including a single
+            description, min/max pace category and values.
+        owner:
+          type: string
+          description: The source or owner of this speedmap (e.g. "formking", or if
+            owned by a user, their UID value).
+          example: formking
+        raceId:
+          type: string
+          description: Unique Form King identifier for the race that this speedmap
+            belongs to.
+          example: NCLE_120326_1
+      required:
+      - custom
+      - direction
+      - entries
+      - owner
+      - raceId
+      description: A speed map for a single race, containing early speed metrics,
+        expected tempo and a list of per-runner SpeedmapEntry items. The owner field
+        identifies the source of the speedmap (e.g. 'formking', or a Form King user's
+        UID).
+    SpeedmapEntry:
+      type: object
+      title: SpeedmapEntry
+      properties:
+        barrier:
+          type: integer
+          description: Barrier number drawn for this runner.
+          example: 1
+        breedingId:
+          type: string
+          description: Form King unique horse identifier for this race entry.
+          example: 2022_exceed-and-excel_wayborn
+        daysSinceLastRace:
+          type: integer
+          description: Number of days since this horse last raced.
+          example: 143
+        distanceChange:
+          type: integer
+          description: Change in race distance compared to the horse's last start,
+            in metres. Positive is up in distance this start.
+        earlySpeedValues:
+          $ref: '#/components/schemas/EarlySpeedMetrics'
+          description: Detailed breakdown of the early speed score, including lengths
+            from leader, lengths vs benchmark, overall score and position in run.
+        emergency:
+          type: boolean
+          description: Whether this runner is an emergency (reserve) entry.
+        gridX:
+          type: integer
+          description: Used only for custom user maps. The grid position on the X
+            axis for this runner tile.
+          example: 9
+        gridY:
+          type: integer
+          description: Used only for custom user maps. The grid position on the Y
+            axis for this runner tile.
+        horse:
+          type: string
+          description: Name of the horse.
+          example: Twoexcel
+        locked:
+          type: boolean
+          description: Whether this entry has been manually locked in the X,Y speedmap
+            grid position by the user. Not used in default Form King maps. See also
+            gridX and gridY.
+        medianEarlyVsBenchmark:
+          type: number
+          description: The median early speed vs the Form King benchmark for this
+            runner, expressed in lengths. Positive is above (faster than) par.
+          example: -3.6944527928043174
+        number:
+          type: integer
+          description: Saddle cloth number for this runner.
+          example: 9
+        runInPrep:
+          type: integer
+          description: Run number within the current preparation.
+          example: 1
+      required:
+      - barrier
+      - breedingId
+      - daysSinceLastRace
+      - distanceChange
+      - emergency
+      - horse
+      - locked
+      - number
+      - runInPrep
+      description: A single runner entry within a Speedmap, containing their Form
+        King default early speed value, detailed early speed metrics, and various
+        other details. The data in each SpeedmapEntry for a formking-owned map should
+        match the Form King Form Guide's Speedmap display.
+    TrainerForm:
+      type: object
+      title: TrainerForm
+      properties:
+        horseComboForm:
+          type: string
+          description: Performance history of this trainer/horse combination.
+          example: 2:0-0-1
+        jockeyComboForm:
+          type: string
+          description: Performance history of this trainer/jockey combination.
+          example: 0:0-0-0
+        jockeyComboWinPercentage:
+          type: number
+          description: Win percentage for this trainer/jockey combination.
+        lastTwelveMonthForm:
+          type: string
+          description: Trainer's overall performance over the last 12 months.
+          example: 481:93-62-64
+        lastTwelveMonthWinPercentage:
+          type: number
+          description: Trainer's win percentage over the last 12 months.
+          example: 19.334719334719335
+        trackComboForm:
+          type: string
+          description: Performance history of this trainer at this track.
+          example: 0:0-0-0
+        trackComboWinPercentage:
+          type: number
+          description: Win percentage for this trainer at this track.
+      required:
+      - horseComboForm
+      - jockeyComboForm
+      - jockeyComboWinPercentage
+      - lastTwelveMonthForm
+      - lastTwelveMonthWinPercentage
+      - trackComboForm
+      - trackComboWinPercentage
+      description: Contains statistical information about a trainer's recent performance.
+    UsageLogItem:
+      type: object
+      title: UsageLogItem
+      properties:
+        bundledUsed:
+          type: integer
+          description: Number of bundled subscription credits used.
+        creditsDeducted:
+          type: integer
+          description: Total credits deducted for this API call.
+        metadata:
+          $ref: '#/components/schemas/UsageMetadata'
+          description: Optional key-value metadata associated with the request (e.g.
+            meetingId, raceId, horseId).
+        mode:
+          type: string
+          description: Credit deduction mode (USED or REPORTING).
+        operation:
+          type: string
+          description: API operation or route invoked (e.g. get_race_form, get_meeting_summary).
+        requestId:
+          type: string
+          description: Unique identifier for the API request.
+        sk:
+          type: string
+          description: Sort key in the usage log table (timestamp#requestId).
+        timestamp:
+          type: string
+          description: ISO 8601 UTC timestamp of the API call.
+        topupUsed:
+          type: integer
+          description: Number of top-up credits used.
+        uid:
+          type: string
+          description: Unique identifier of the user account.
+        version:
+          type: number
+          description: Usage log schema version (e.g. 2.0).
+      required:
+      - bundledUsed
+      - creditsDeducted
+      - operation
+      - requestId
+      - timestamp
+      - uid
+      description: A single API request credit usage log entry recorded by the B2C
+        API.
+    UsageMetadata:
+      type: object
+      title: UsageMetadata
+      properties:
+        callType:
+          type: string
+          description: Sub-type or context of the call, if applicable.
+        horseId:
+          type: string
+          description: Horse ID associated with the API call, if applicable.
+        meetingId:
+          type: string
+          description: Meeting ID associated with the API call, if applicable.
+          example: ABNY_150526
+        raceId:
+          type: string
+          description: Race ID associated with the API call, if applicable.
+      required: []
+      description: Contextual request parameters and metadata captured during API
+        invocation.
+    UsageOperationSummary:
+      type: object
+      title: UsageOperationSummary
+      properties:
+        calls:
+          type: integer
+          description: Total number of API calls for this operation.
+        credits:
+          type: integer
+          description: Total credits deducted for this operation.
+      required:
+      - calls
+      - credits
+      description: Breakdown of call counts and total credits deducted for a specific
+        API operation.
+  parameters:
+    FormatParam:
+      name: format
+      in: query
+      required: false
+      description: Response format. Defaults to `json`. Set to `csv` to receive a
+        CSV file instead.
+      schema:
+        type: string
+        enum:
+        - json
+        - csv
+        default: json
+    FlattenParam:
+      name: flatten
+      in: query
+      required: false
+      description: "Controls the flattening level when `format=csv`. `entry` (default)\
+        \ \u2014 one row per entry with `meeting_*` and `race_*` columns prepended;\
+        \ `race` \u2014 one row per race with `meeting_*` columns prepended; `meeting`\
+        \ \u2014 one row per meeting (fully flattened)."
+      schema:
+        type: string
+        enum:
+        - entry
+        - race
+        - meeting
+        default: entry
+    VersionParam:
+      name: version
+      in: query
+      required: false
+      description: API projection version. Currently only `v1` is supported.
+      schema:
+        type: string
+        enum:
+        - v1
+        default: v1
+security:
+- ApiKeyAuth: []
+tags:
+- name: Meetings
+  description: Endpoints for retrieving horse racing meeting information, including
+    upcoming meetings and full meeting summaries.
+- name: Races
+  description: Endpoints for retrieving detailed race information, including runner
+    form enriched with horse profile data.
+- name: Horses
+  description: Endpoints for retrieving individual horse form profiles, including
+    past events and benchmarked sectional data.
+- name: Account
+  description: Endpoints for account management, usage logging, and subscription self-service.
