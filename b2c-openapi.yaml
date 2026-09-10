@@ -1,24 +1,34 @@
 openapi: 3.1.0
 info:
-  title: FormKing API
+  title: FormKing Modellers API
   version: 1.0.8
-  summary: Core business consumer engagement engine.
+  summary: An AI-friendly Horse Racing API for data modellers, form analysts, professional
+    punters and participants interested in performance data and automation.
   description: "**[Home](https://www.formking.com.au/) | API Docs**\n\nWelcome to\
     \ the **Form King Modellers API**! Everyone with a Form King Web Subscription\
-    \ can now automate their workflows :)\n\n\n> The Form King Modellers API is now\
+    \ can now automate their workflows :)\n\n> The Form King Modellers API is now\
     \ production-ready and generally available to all new and existing Form King Web\
-    \ subscribers. Please ensure that you read, accept and adhere to our [API Terms](https://static.formking.com.au/b2c-api-terms.html)\
-    \ before you request or use an API key.\n\n## Getting Started\n1. If you have\
-    \ an active Form King web subscription, head to the [My Subscriptions](https://www.formking.com.au/member/subscriptions)\
+    \ subscribers. Please ensure that you read, accept and adhere to our [API Terms\
+    \ and Conditions](https://www.formking.com.au/api-terms) before you request or\
+    \ use an API key.\n\n## Getting Started\n1. If you have an active Form King web\
+    \ subscription, head to the [My Subscriptions](https://www.formking.com.au/member/subscriptions)\
     \ page >> API Keys / Usage.\n2. Click the `Generate API Key` button. Carefully\
     \ read the terms and conditions. If you're comfortable, check the box to accept\
     \ and generate your key. \n3. Your bundled balance will have been pre-filled based\
     \ on your subscription tier, and you're ready to start!\n4. Ensure you send the\
     \ proper `x-api-key` header with every API request. You can even test out API\
     \ calls from within this page, using your key or the built in test API key (FK-TEST-API-KEY)!\n\
-    \n---\n\n## API Credit Model\nWe've implemented the following credit usage model\
-    \ and bundled allowances. All APIs have a fixed credit cost to cover our cloud\
-    \ computing expenses, and APIs containing our most premium data (BenchmarkedRun)\
+    \n### Learn More\n\n* Our website has a [FAQ Page](https://www.formking.com.au/api-faq)\
+    \ relating to the Modellers API. Head here to learn more about how credits are\
+    \ dispersed, how far your bundled balance will get you each month, the types of\
+    \ things you can build on top of our API and much more. \n* We have uploaded this\
+    \ API specification to [GitHub](https://github.com/dpfundt/form-king-api-tools)\
+    \ and will also be releasing some companion tooling for the API to help users\
+    \ and AI agents alike get the most out of our offerings.\n* Our [Ts and Cs](https://www.formking.com.au/api-terms)\
+    \ are the definitive guide on _who_ can consume this API, and _what_ they can\
+    \ build.\n\n---\n\n## API Credit Model\nWe've implemented the following credit\
+    \ usage model and bundled allowances. All APIs have a fixed credit cost to cover\
+    \ our cloud computing expenses, and APIs containing our most premium data (BenchmarkedRun)\
     \ also incur a variable credit cost at a certain depth. Credit costs and bundled\
     \ allowances have been set to be incredibly generous within existing subscription\
     \ pricing, while pricing bulk-scraping at full depth out of reach. We think 99%\
@@ -29,82 +39,87 @@ info:
     \                                   | Rationale                              \
     \                                                                            \
     \                                                                            \
-    \                                |\n---|------------------|---------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n\
+    \                                 |\n---|------------------|---------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n\
     \ `GET /b2c/meetings/upcoming` | **1 credit**     | \u2014                   \
     \                                                                            \
     \              | Cursory lookup of all upcoming meetings; Filter by States, Grades,\
     \ Status to reduce credit costs and narrow the scope of data retrieval.      \
     \                                                                            \
-    \ |\n `GET /b2c/meetings/{id}` (Get Meeting Summary) | **5 credits**    | \u2014\
+    \      |\n `GET /b2c/meetings/date/{ddmmyy}` | **1 credit**     | \u2014     \
     \                                                                            \
-    \                                 | Full meeting with race entries; moderate data\
-    \ depth matching the Form Guide. Includes last 12 PastEvent (race only) records\
-    \ per runner, with weight-adjusted and WFA ratings. Market odds and neural/EXP\
-    \ ratings also included. |\n `GET /b2c/meetings/{id}/speedmaps` (Get Meeting Speedmaps)\
-    \ | **5 credits**    | \u2014                                                \
-    \                                                             | All-race speedmap\
-    \ data for a meeting in one call; bulk value                                 \
-    \                                                                            \
-    \                                                      |\n `GET /b2c/meetings/{id}/speedmaps/{raceId}`\
-    \ (Get Race Speedmap) | **1 credit**     | \u2014                            \
-    \                                                                            \
-    \     | Single race speedmap; lightweight                                    \
-    \                                                                            \
-    \                                                                            \
-    \  |\n `GET /b2c/meetings/{id}/races/{raceId}` (Get Race Form) with **numBenchmarks\
-    \ <= 5** | **2 credits**    | \u2014                                         \
-    \                                                                    | Race form\
-    \ with numBenchmarks <= 5. Can still have the full career PastEvents at the fixed\
-    \ 2 credit price.                                                            \
-    \                                                          |\n `GET /b2c/meetings/{id}/races/{raceId}`\
-    \ with **numBenchmarks > 5** | **2 + variable** | +0.5 credits per additional\
-    \ `BenchmarkedRun` item returned (partial credits rounded up at the response level)\
-    \ | Modellers pay proportional to depth retrieved. For numBenchmarks=10, credit\
-    \ cost can range between 15 and 50 credits per race.                         \
-    \                                                                        |\n `GET\
-    \ /b2c/horses/{id}` (Get Horse Profile) with **numBenchmarks <= 5** | **2 credits**\
+    \                            | Cursory lookup of all meetings on a given date;\
+    \ Filter by States, Grades, Status, in the same way as the Get Upcoming Meetings\
+    \ API. Same response structure. Minimum date of 1st July, 2025 applies (010725).\
+    \                   |\n `GET /b2c/meetings/{id}` (Get Meeting Summary) | **5 credits**\
     \    | \u2014                                                                \
-    \                                             | Horse form with numBenchmarks\
-    \ <= 5. Can still have the full career PastEvents at the fixed 2 credit price.\
+    \                                             | Full meeting with race entries;\
+    \ moderate data depth matching the Form Guide. Includes last 12 PastEvent (race\
+    \ only) records per runner, with weight-adjusted and WFA ratings. Market odds\
+    \ and neural/EXP ratings also included. |\n `GET /b2c/meetings/{id}/speedmaps`\
+    \ (Get Meeting Speedmaps) | **5 credits**    | \u2014                        \
     \                                                                            \
-    \                                         |\n `GET /b2c/horses/{id}` (Get Horse\
-    \ Profile) with **numBenchmarks > 5** | **2 + variable** | +0.5 credits per additional\
-    \ `BenchmarkedRun` item returned (partial credits rounded up at the response level)\
-    \ | Same variable model as race form, so max cost is 12 credits for the full runner\
-    \ career form and benchmarking.                                              \
-    \                                                                    |\n `POST\
-    \ /b2c/account/keys` | **1 credit**     | \u2014                             \
-    \                                                                            \
-    \    | Revoke or Re-activate your API key.                                   \
+    \         | All-race speedmap data for a meeting in one call; bulk value     \
     \                                                                            \
     \                                                                            \
-    \ |\n `GET /b2c/account/keys/{uid}` | **1 credit**     | \u2014              \
+    \       |\n `GET /b2c/meetings/{id}/speedmaps/{raceId}` (Get Race Speedmap) |\
+    \ **1 credit**     | \u2014                                                  \
+    \                                                           | Single race speedmap;\
+    \ lightweight                                                                \
     \                                                                            \
-    \                   | View your credit balance information and key details.  \
+    \                                                   |\n `GET /b2c/meetings/{id}/races/{raceId}`\
+    \ (Get Race Form) with **numBenchmarks <= 5** | **2 credits**    | \u2014    \
+    \                                                                            \
+    \                             | Race form with numBenchmarks <= 5. Can still have\
+    \ the full career PastEvents at the fixed 2 credit price.                    \
+    \                                                                            \
+    \                       |\n `GET /b2c/meetings/{id}/races/{raceId}` with **numBenchmarks\
+    \ > 5** | **2 + variable** | +0.5 credits per additional `BenchmarkedRun` item\
+    \ returned (partial credits rounded up at the response level) | Modellers pay\
+    \ proportional to depth retrieved. For numBenchmarks=10, credit cost can range\
+    \ between 15 and 50 credits per race.                                        \
+    \                                                          |\n `GET /b2c/horses/{id}`\
+    \ (Get Horse Form) with **numBenchmarks <= 5** | **2 credits**    | \u2014   \
+    \                                                                            \
+    \                              | Horse form with numBenchmarks <= 5. Can still\
+    \ have the full career PastEvents at the fixed 2 credit price.               \
+    \                                                                            \
+    \                           |\n `GET /b2c/horses/{id}` (Get Horse Form) with **numBenchmarks\
+    \ > 5** | **2 + variable** | +0.5 credits per additional `BenchmarkedRun` item\
+    \ returned (partial credits rounded up at the response level) | Same variable\
+    \ model as race form, so max cost is 12 credits for the full runner career form\
+    \ and benchmarking.                                                          \
+    \                                                         |\n `POST /b2c/account/keys`\
+    \ | **1 credit**     | \u2014                                                \
+    \                                                             | Revoke or Re-activate\
+    \ your API key.                                                              \
+    \                                                                            \
+    \                                                   |\n `GET /b2c/account/keys/{uid}`\
+    \ | **1 credit**     | \u2014                                                \
+    \                                                             | View your credit\
+    \ balance information and key details.                                       \
+    \                                                                            \
+    \                                                        |\n `GET /b2c/usage`\
+    \ | **1 credit**     | \u2014                                                \
+    \                                                             | Query for raw\
+    \ or daily grouped credit usage history pertaining to your API key.          \
+    \                                                                            \
+    \                                                           |\n\n> **BenchmarkedRun\
+    \ pricing note:** Our variable credit design exists to protect the Form King database\
+    \ from bulk replication. We will always strive to provide high value at an affordable\
+    \ price, and as such, we've decided to include the first 5 `BenchmarkedRun` instances\
+    \ per runner at no additional cost. This allows the vast majority of modellers\
+    \ access to the most recent and relevant data on a rolling basis and leaves them\
+    \ with a huge amount of headroom to cover all of Australia, providing their subscription\
+    \ allows this level of data. Any resulting partial credit total (e.g. 2.5 credits)\
+    \ is rounded up to the nearest whole credit (e.g. 3 credits) when charged.\n\n\
+    ### Bundled Credits per Web Subscription Tier\n\n Tier | Monthly Price | Bundled\
+    \ Monthly Credits | Approx credits/day | Rationale                           \
     \                                                                            \
     \                                                                            \
-    \                |\n `GET /b2c/usage` | **1 credit**     | \u2014            \
-    \                                                                            \
-    \                     | Query for raw or daily grouped credit usage history pertaining\
-    \ to your API key.                                                           \
-    \                                                                            \
-    \         |\n\n> **BenchmarkedRun pricing note:** Our variable credit design exists\
-    \ to protect the Form King database from bulk replication. We will always strive\
-    \ to provide high value at an affordable price, and as such, we've decided to\
-    \ include the first 5 `BenchmarkedRun` instances per runner at no additional cost.\
-    \ This allows the vast majority of modellers access to the most recent and relevant\
-    \ data on a rolling basis and leaves them with a huge amount of headroom to cover\
-    \ all of Australia, providing their subscription allows this level of data. Any\
-    \ resulting partial credit total (e.g. 2.5 credits) is rounded up to the nearest\
-    \ whole credit (e.g. 3 credits) when charged.\n\n### Bundled Credits per Web Subscription\
-    \ Tier\n\n Tier | Monthly Price | Bundled Monthly Credits | Approx credits/day\
-    \ | Rationale                                                                \
     \                                                                            \
     \                                                                            \
     \                                                                            \
-    \                                                                            \
-    \                                                                            \
-    \                                      |\n---|---------------|-------------------------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n\
+    \                                                                        |\n---|---------------|-------------------------|--------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|\n\
     \ Lite | $95 AUD/mo    | **10,000 credits***     | ~333               | Intended\
     \ for hobbyists / light automation. Typical pattern: scheduled Get Upcoming Meetings\
     \ polls each day, then either (a) call Get Race Form or (b) Get Meeting Summary\
@@ -112,28 +127,28 @@ info:
     \ forms/day (no benchmarks with Lite subscriptions), or ~66 meeting summaries/day.\
     \ Designed for cursory form automation and modelling, rather than sustained/deep\
     \ data analysis across many races/horses.                                    \
-    \      |\n Single State Pro | $165 AUD/mo   | **20,000 credits***     | ~667 \
-    \              | Designed for one-state professional workflows. Typical pattern:\
+    \   |\n Single State Pro | $165 AUD/mo   | **20,000 credits***     | ~667    \
+    \           | Designed for one-state professional workflows. Typical pattern:\
     \ scheduled Get Upcoming Meetings \u2192 mostly Get Race Form calls or Get Meeting\
     \ Summary + Get Meeting Speedmaps for that state. Supports ~333 race forms/day\
     \ (up to 5 benchmarks) or ~133 meeting summaries/day. Suitable for daily automated\
     \ pulls, powerful benchmark-driven modelling within one state; occasional broader/deeper\
     \ modelling possible, but may require top-up credits or an upgrade to Pro.   \
-    \                               |\n Pro | $265 AUD/mo   | **30,000 credits***\
-    \     | ~1000              | For nationally-focused modellers. Typical pattern:\
-    \ scheduled Get Upcoming Meetings \u2192 mix of Get Meeting Summary, Get Meeting\
-    \ Speedmaps and many Get Race Form calls; some users will hit Get Horse Profile.\
-    \ Supports ~500 race forms/day (up to 5 benchmarks) or broad multi-state coverage.\
-    \ Enables regular production/near-production model runs; deeper modelling across\
-    \ many races/horses is feasible but may require top-up credits for those that\
-    \ want to model all jurisdictions to a deeper level. |\n\n*For Monthly subscriptions,\
-    \ bundled credits **do not roll over** at period renewal. For 3, 6 and 12 month\
-    \ subscriptions, a 2 x monthly bundled credit cap is available. Top-up credits\
-    \ (purchased ad-hoc) **do** persist until used. Upon expiry of credit balance,\
-    \ API requests will return HTTP 402 (Payment Required) error. API keys continuing\
-    \ to send traffic resulting in sustained/large numbers of 402 errors will be paused\
-    \ with manual intervention required to restore access. \n\n### Top-Up Credits\n\
-    Top-up credits will be available for purchase from the [My Subscriptions](https://www.formking.com.au/member/subscriptions)\
+    \                            |\n Pro | $265 AUD/mo   | **30,000 credits***   \
+    \  | ~1000              | For nationally-focused modellers. Typical pattern: scheduled\
+    \ Get Upcoming Meetings \u2192 mix of Get Meeting Summary, Get Meeting Speedmaps\
+    \ and many Get Race Form calls; some users will hit Get Horse Form. Supports ~500\
+    \ race forms/day (up to 5 benchmarks) or broad multi-state coverage. Enables regular\
+    \ production/near-production model runs; deeper modelling across many races/horses\
+    \ is feasible but may require top-up credits for those that want to model all\
+    \ jurisdictions to a deeper level. |\n\n*For Monthly subscriptions, bundled credits\
+    \ **do not roll over** at period renewal. For 3, 6 and 12 month subscriptions,\
+    \ a 2 x monthly bundled credit cap is available. Top-up credits (purchased ad-hoc)\
+    \ **do** persist until used. Upon expiry of credit balance, API requests will\
+    \ return HTTP 402 (Payment Required) error. API keys continuing to send traffic\
+    \ resulting in sustained/large numbers of 402 errors will be paused with manual\
+    \ intervention required to restore access. \n\n### Top-Up Credits\nTop-up credits\
+    \ will be available for purchase from the [My Subscriptions](https://www.formking.com.au/member/subscriptions)\
     \ page within Form King Web on an ad-hoc basis at the following rates:\n\n| Bundle\
     \ Size        | Total Credits | Price (AUD) | Effective Rate (per 1k credits)\
     \ | Savings vs. Base |\n|:-------------------| :------------ |:------------|:--------------------------------|:-----------------|\n\
@@ -144,48 +159,92 @@ info:
     \            |\n| **Professional**   | 50,000        | $400.00     | $8.00   \
     \                        | 20.0%            |\n| **Data Scientist** | 100,000\
     \       | $750.00     | $7.50                           | 25.0%            |\n\
-    \n---\n\n## API Usage and Rate Limiting\nYour use of the Form King API is bound\
-    \ by our [API Terms](https://static.formking.com.au/b2c-api-terms.html). We've\
-    \ provided an industry-first modelling API with generous usage limits, breaking\
+    \n---\n\n## Historical Data Files\nWhile it is perfectly OK to use Bundled and\
+    \ Top-Up credits for pulling historical data, a much more affordable alternative\
+    \ is to purchase a historical data file bundle. Historical files are available\
+    \ only to **current Form King Web subscribers** whose use case we have approved.\
+    \ Files cover Australian **TAB professional** thoroughbred meetings only.\n\n\
+    Each file includes the following point-in-time* data, for the purchased jurisdiction\
+    \ and window:\n\n- Meeting/Race/RaceEntry particulars (per the MeetingSummary\
+    \ and RaceSummary schema types in this document. Includes FK Neural, EXP and bestOdds\
+    \ flucs, as well as HorseResult with SP, Betfair SP and more)\n- Meeting speedmaps\n\
+    - Full career form (PastEvent items) for each runner\n- Benchmarked Sectionals\
+    \ and Performance Ratings (BenchmarkedRun items inside a PastEvent) to the purchased\
+    \ depth (most recent 5 or 10)\n\n> *Point-in-time: meeting, race and runner fields\
+    \ (including Neural, EXP, odds/flucs and official results) are as-at meeting date\
+    \ / jump time, or as-at result for HorseResult. They are not rewritten at a later\
+    \ date.\nBenchmarked sectionals are recalibrated as more samples arrive, so the\
+    \ same PastEvent in a file bought today can differ from a live API pull next season.\n\
+    Performance ratings are frozen only where BenchmarkedRun.trackSpeedVerified is\
+    \ true (manual review). Coverage of the historical window is about 97%. We may\
+    \ later review the remaining meetings, especially if an anomaly is found. Use\
+    \ trackSpeedVerified as the freeze flag in your models.\n\n**12 months** is the\
+    \ meeting window. **5 / 10 benchmarks** is premium depth on each runner, not a\
+    \ shorter calendar. A 6-month file is the same contents over a shorter vintage.\
+    \ Two 6-month files are not sold as a substitute for 12 months.\n\nThe licence\
+    \ is personal, to that vintage only. It survives later cancellation of the live\
+    \ subscription; it is not refreshed once the live subscription ends. Commercial\
+    \ use is a separate licence (contact us for our Enterprise API historical and\
+    \ go-forward pricing).\n\n| Jurisdiction (AUS only*) | 12 mo \xB7 10 bm | 12 mo\
+    \ \xB7 5 bm | 6 mo \xB7 10 bm | 6 mo \xB7 5 bm |\n|:-------------------------|:--------------|:-------------|:-------------|:------------|\n\
+    | **VIC**                  | $599.00 | $329.00 | $419.00 | $230.00 |\n| **NSW\
+    \ + ACT**            | $599.00 | $329.00 | $419.00 | $230.00 |\n| **QLD**    \
+    \              | $399.00 | $219.00 | $279.00 | $153.00 |\n| **WA**           \
+    \        | $399.00 | $219.00 | $279.00 | $153.00 |\n| **SA**                 \
+    \  | $349.00 | $192.00 | $249.00 | $137.00 |\n| **TAS**                  | $229.00\
+    \ | $126.00 | $159.00 | $87.00 |\n| **NT**                   | $229.00 | $126.00\
+    \ | $159.00 | $87.00 |\n| **All Australia**        | $1,799.00 | $989.00 | $1,249.00\
+    \ | $687.00 |\n\n*New Zealand and Hong Kong are not currently available.\n\nAll-Australia\
+    \ is ~36% below buying every state file separately. We don't sell 3-month files.\
+    \ Uncapped / full-career benchmark depth is not currently available for purchase.\
+    \ During the initial release of this API, the start date for historical data will\
+    \ be the 1st of July, 2025. We will continue to open up historical data range\
+    \ once their contents have been brought up to the latest schema, and confirmed\
+    \ to be ready for modelling. We are also exploring Hong Kong as an additional\
+    \ jurisdiction.\n\n## API Usage and Rate Limiting\nYour use of the Form King API\
+    \ is bound by our [API Terms and Conditions](https://www.formking.com.au/api-terms).\
+    \ We've provided an industry-first modelling API with generous usage limits, breaking\
     \ down the barrier to entry for everyday racing analysts and without the need\
     \ for an expensive \"modeller\" subscription. Users pay for what they consume,\
     \ and we've included several methods for limiting the scope of data and credit\
     \ cost.\n\nThe Form King API is for personal, non-commercial usage only, unless\
-    \ otherwise stated in writing by Form King or their representative. Users are\
-    \ not permitted to use the API to develop a product that may become commercial\
-    \ at a later stage. See the [API Terms](https://static.formking.com.au/b2c-api-terms.html)\
-    \ for the full set of restrictions and definitions with regard to acceptable API\
-    \ use. \n\nWe have a strict no \"bulk scraping\" policy. Users are not entitled\
-    \ to make copies of the Form King (and Mediality Racing) datasets to the full\
-    \ depth. Attempts to circumvent current and future API security measures or rate/data\
-    \ limits will result in termination of access, and if required, those incidents\
-    \ will be reported to the relevant industry and regulatory bodies, in line with\
-    \ our contractual obligations with these bodies.\n\n---\n\n## Release Notes\n\n\
-    ### 1.0.8 (GA Release on 10/9/26)\n* Added API key and usage APIs for self-service\
-    \ and near-real-time balance query, key management and credit usage history.\n\
-    * Switched on live credit deduction. Added credit usage viewer/CSV download and\
-    \ API key management via Form King Web.\n* Added a statuses query parameter to\
-    \ Get Upcoming Meetings, to allow people to drop abandoned or nominations/weights\
-    \ meetings.\n* Uploaded API spec and documentation to our [GitHub](https://github.com/dpfundt/form-king-api-tools)\
-    \ page.\n* Added [API FAQ](https://www.formking.com.au/api-faq) page on Form King\
-    \ Web and marketing via homepage.\n* Partial credits are now rounded up at the\
-    \ response level (e.g numBenchmarks=8, the 1.5 credits is charged as 2 credits\
-    \ instead of 1).\n* Implemented bundled credit rollover each month and automatically\
-    \ zero balance when an invoice is not paid for 7 days.\n* Implemented top-up credit\
-    \ bundle purchase flow, via Form King Web.\n\n\n### 1.0.7-beta (7/8/26)\n* Fixed\
-    \ a high priority point-in-time data issue (FK-758) whereby `Get Meeting Summary`\
-    \ and `Get Race Form` could return `PastEvent` records for today's race, or for\
-    \ future races.\n* Minor changes to API documentation containing more clarity\
-    \ around credit costs (round down/floor if partial credits would otherwise be\
-    \ charged).\n* Added the `includeScratchings` query parameter to the Get Race\
-    \ Form API, defaulting to false. By dropping scratched entries, those horses'\
-    \ profiles will not be fetched and benchmarks will not be included or charged.\
-    \ If passed as true, they will be included and charged.\n\n### 1.0.6-beta (6/8/26)\n\
-    * Updated our [API Terms](https://static.formking.com.au/b2c-api-terms.html) to\
-    \ reflect stronger security and usage policy. Please ensure you're familiar and\
-    \ able to accept these terms before using the API.\n* Implemented the first of\
-    \ our rate limiting policies (300 requests per 300 seconds across both Web and\
-    \ API). Additional limits, including per API to be documented and implemented\
+    \ otherwise stated in writing by Form King or their representative. See the [Ts\
+    \ and Cs](https://www.formking.com.au/api-terms) for the full set of restrictions\
+    \ and definitions with regard to acceptable API use. \n\nWe have a strict no \"\
+    bulk scraping\" policy. Users are not entitled to make copies of the Form King\
+    \ (and Mediality Racing) datasets to the full depth. Attempts to circumvent current\
+    \ and future API security measures or rate/data limits will result in termination\
+    \ of access, and if required, those incidents will be reported to the relevant\
+    \ industry and regulatory bodies, in line with our contractual obligations with\
+    \ these bodies.\n\n---\n\n## Release Notes\n\n### 1.0.8 (GA Release on 11/9/26)\n\
+    * Added API key and usage APIs for self-service and near-real-time balance query,\
+    \ key management and credit usage history.\n* Switched on live credit deduction.\
+    \ Added credit usage viewer/CSV download and API key management via Form King\
+    \ Web.\n* The [Ts and Cs](https://www.formking.com.au/api-terms) have been relaxed\
+    \ based on feedback and a review of the terms in v1.0.6. Personal Models are now\
+    \ separately defined, data deletion and retention rules have been relaxed\n* Added\
+    \ a statuses query parameter to Get Upcoming Meetings, to allow people to drop\
+    \ abandoned or nominations/weights meetings.\n* Uploaded API spec and documentation\
+    \ to our [GitHub](https://github.com/dpfundt/form-king-api-tools) page.\n* Added\
+    \ [API FAQ](https://www.formking.com.au/api-faq) page on Form King Web and marketing\
+    \ via homepage.\n* Partial credits are now rounded up at the response level (e.g\
+    \ numBenchmarks=8, the 1.5 credits is charged as 2 credits instead of 1).\n* Monthly\
+    \ bundled credits reset each period (2x month cap for longer subs); unpaid invoices\
+    \ zero the full bundled balance after 7 days.\n* Implemented top-up credit bundle\
+    \ purchase flow, via Form King Web.\n* Released historical data file pricing.\n\
+    \n\n### 1.0.7-beta (7/8/26)\n* Fixed a high priority point-in-time data issue\
+    \ (FK-758) whereby `Get Meeting Summary` and `Get Race Form` could return `PastEvent`\
+    \ records for today's race, or for future races.\n* Minor changes to API documentation\
+    \ containing more clarity around credit costs (round down/floor if partial credits\
+    \ would otherwise be charged).\n* Added the `includeScratchings` query parameter\
+    \ to the Get Race Form API, defaulting to false. By dropping scratched entries,\
+    \ those horses' profiles will not be fetched and benchmarks will not be included\
+    \ or charged. If passed as true, they will be included and charged.\n\n### 1.0.6-beta\
+    \ (6/8/26)\n* Updated our [API Terms](https://static.formking.com.au/b2c-api-terms-v-1.0.6.html)\
+    \ to reflect stronger security and usage policy. Please ensure you're familiar\
+    \ and able to accept these terms before using the API.\n* Implemented the first\
+    \ of our rate limiting policies (300 requests per 300 seconds across both Web\
+    \ and API). Additional limits, including per API to be documented and implemented\
     \ prior to API general release. HTTP 429 code is returned for rate limit errors.\n\
     * Proposed an API Credit Pricing Model and distributed amongst API users for comment\
     \ over a two-week consultation period.\n* Fixed a bug with Get Horse Form where\
@@ -206,8 +265,8 @@ info:
     \ statistics without enforcing credit limits. We will use this to right size the\
     \ dollar price of top up credits, and any bundled credit balance that will come\
     \ with the web subscription.\n* Introduced the `racesOnly`, `numPastRaces` and\
-    \ `numBenchmarks` query parameters to the Get Race Form and Get Horse Profile\
-    \ APIs. These parameters will allow users to reduce the data depth in the response,\
+    \ `numBenchmarks` query parameters to the Get Race Form and Get Horse Form APIs.\
+    \ These parameters will allow users to reduce the data depth in the response,\
     \ and in turn save on API credit usage (every benchmark returned costs more credits).\
     \ \n* Limited \"Pro\" data in each API to only those who have a Pro subscription,\
     \ or a Single State Pro subscription and are fetching data from their chosen state.\
@@ -225,7 +284,7 @@ info:
     \ of the race.\n\n### 1.0.3-beta (18/7/26)\n* Introduced the Get Meeting Speedmaps\
     \ and Get Race Speedmap APIs.\n* Added support for the FK-TEST-API-KEY so that\
     \ unsubscribed users can try the API.\n\n### 1.0.2-beta (8/7/26)\n* Introduced\
-    \ the Get Race Form and Get Horse Profile APIs.\n* Added states and grades filters\
+    \ the Get Race Form and Get Horse Form APIs.\n* Added states and grades filters\
     \ to Get Upcoming Meetings API.\n\n### 1.0.1-beta (25/5/26)\n* Initial draft of\
     \ the Get Upcoming Meetings and Get Meeting Summary APIs.\n"
 servers:
@@ -336,9 +395,126 @@ paths:
         racing. Response includes basic meeting, race and runner details. This endpoint
         can be used as an index of what is upcoming. Depending on the depth of data
         required for your modelling, you might choose to call the Get Meeting Summary
-        API or the Get Race Form API (per race) after calling this endpoint. Cost:
-        1 credit per call (base cost).'
+        API or the Get Race Form API (per race) after calling this endpoint. To fetch
+        a specific historical or future day instead of this rolling window, see Get
+        Meetings By Date. Cost: 1 credit per call (base cost).'
       summary: Get Upcoming Meetings
+      tags:
+      - Meetings
+  /b2c/meetings/date/{ddmmyy}:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MeetingSummaryLite'
+            text/csv:
+              schema:
+                type: string
+                description: 'CSV-formatted response. Use `?format=csv` or `Accept:
+                  text/csv` to request this format. Control the flattening level with
+                  `?flatten=meeting|race|entry`.'
+          headers:
+            Content-Disposition:
+              description: 'Present when CSV is returned. Value: `attachment; filename="response.csv"`'
+              schema:
+                type: string
+        '307':
+          description: Temporary redirect to a pre-signed S3 URL containing the projected
+            JSON (large responses > 5 MB). Valid for 6 hours. Clients should follow
+            the `Location` header automatically.
+          headers:
+            Location:
+              description: Pre-signed S3 URL for the projected JSON file.
+              schema:
+                type: string
+                format: uri
+        '400':
+          description: Bad request (invalid parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid `x-api-key`"
+        '402':
+          description: "Payment Required \u2014 insufficient credit balance"
+        '403':
+          description: "Forbidden \u2014 access denied or tier restricted"
+        '404':
+          description: Not found
+        '429':
+          description: "Too Many Requests \u2014 rate limit exceeded"
+        '500':
+          description: Internal server error
+      parameters:
+      - $ref: '#/components/parameters/FormatParam'
+      - $ref: '#/components/parameters/FlattenParam'
+      - $ref: '#/components/parameters/VersionParam'
+      - name: ddmmyy
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^\d{6}$
+        description: Meeting date in DDMMYY format (e.g. `010725` for 1 July 2025).
+      - name: states
+        in: query
+        required: false
+        description: Filter meetings by state. Supports multiple comma-separated values.
+        schema:
+          type: string
+          enum:
+          - VIC
+          - NSW
+          - TAS
+          - WA
+          - ACT
+          - NT
+          - SA
+          - QLD
+          - NZ
+          - HK
+      - name: grades
+        in: query
+        required: false
+        description: Filter meetings by prizemoney grade. Supports multiple comma-separated
+          values. N = Non-TAB, C = Country, P = Provincial, M = Metropolitan (matches
+          both MMW and MSAT), MMW = Metro Midweek, MSAT = Metro Saturday.
+        schema:
+          type: string
+          enum:
+          - N
+          - C
+          - P
+          - M
+          - MMW
+          - MSAT
+      - name: statuses
+        in: query
+        required: false
+        description: "Filter meetings by status. Supports multiple comma-separated\
+          \ values. Excludes whole meetings whose `status` doesn't match. `FINAL_OR_RESULTED`\
+          \ is a convenience alias that expands to `FINAL_FIELDS,INTERIM_RESULTS,RESULTED`\
+          \ \u2014 handy for excluding non-final meetings."
+        schema:
+          type: string
+          enum:
+          - NOMINATIONS
+          - WEIGHTS
+          - FINAL_FIELDS
+          - INTERIM_RESULTS
+          - RESULTED
+          - ABANDONED
+          - UNKNOWN
+          - FINAL_OR_RESULTED
+      description: 'Returns the same list of horse racing meetings as Get Upcoming
+        Meetings, but for a specific day rather than the rolling 7-day window. The
+        `{ddmmyy}` path parameter must be in DDMMYY format (e.g. `010725` for 1 July
+        2025). Requests for dates earlier than the currently configured minimum meeting
+        date (010725) will be rejected; this minimum date is progressively lowered
+        as historical data is cleaned. Cost: 1 credit per call (base cost).'
+      summary: Get Meetings By Date
       tags:
       - Meetings
   /b2c/meetings/{meetingId}:
@@ -413,7 +589,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/HorseProfile'
+                $ref: '#/components/schemas/HorseForm'
             text/csv:
               schema:
                 type: string
@@ -496,7 +672,7 @@ paths:
         cost). For `numBenchmarks > 5`, an additional 0.5 credits per BenchmarkedRun
         item returned. The resulting total is rounded up (ceil) to the nearest whole
         credit before charging.'
-      summary: Get Horse Profile
+      summary: Get Horse Form
       tags:
       - Horses
   /b2c/meetings/{meetingId}/races/{raceId}:
@@ -1793,6 +1969,29 @@ components:
       - sire
       description: Full horse details, including breeding, age, gender, ownership
         and training location.
+    HorseForm:
+      type: object
+      properties:
+        horse:
+          $ref: '#/components/schemas/Horse'
+        id:
+          type: string
+          description: Unique identifier for the horse.
+        mostRecentTrainer:
+          type: string
+          description: The most recent trainer of the horse.
+        pastEvents:
+          type: array
+          items:
+            $ref: '#/components/schemas/PastEvent'
+          description: Full career list of past race, trial, spell and scratched entries
+            for the horse.
+      required:
+      - id
+      description: A complete profile for a horse, including full past race, trial,
+        spell and scratching items, benchmarked sectional data and performance ratings.
+        Data depth will depend on subscription level.
+      title: HorseForm
     HorseLite:
       type: object
       title: HorseLite
@@ -1815,29 +2014,6 @@ components:
       - sire
       description: Basic horse identification details included in lite meeting and
         race summaries.
-    HorseProfile:
-      type: object
-      properties:
-        horse:
-          $ref: '#/components/schemas/Horse'
-        id:
-          type: string
-          description: Unique identifier for the horse.
-        mostRecentTrainer:
-          type: string
-          description: The most recent trainer of the horse.
-        pastEvents:
-          type: array
-          items:
-            $ref: '#/components/schemas/PastEvent'
-          description: Full career list of past race, trial, spell and scratched entries
-            for the horse.
-      required:
-      - id
-      description: A complete profile for a horse, including full past race, trial,
-        spell and scratching items, benchmarked sectional data and performance ratings.
-        Data depth will depend on subscription level.
-      title: HorseProfile
     HorseResult:
       type: object
       title: HorseResult
