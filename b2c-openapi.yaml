@@ -173,14 +173,14 @@ info:
     \ depth (most recent 5 or 10)\n\n> *Point-in-time: meeting, race and runner fields\
     \ (including Neural, EXP, odds/flucs and official results) are as-at meeting date\
     \ / jump time, or as-at result for HorseResult. They are not rewritten at a later\
-    \ date.\nBenchmarked sectionals are recalibrated as more samples arrive, so the\
-    \ same PastEvent in a file bought today can differ from a live API pull next season.\n\
-    Performance ratings are frozen only where BenchmarkedRun.trackSpeedVerified is\
-    \ true (manual review). Coverage of the historical window is about 97%. We may\
-    \ later review the remaining meetings, especially if an anomaly is found. Use\
-    \ trackSpeedVerified as the freeze flag in your models.\n\n**12 months** is the\
-    \ meeting window. **5 / 10 benchmarks** is premium depth on each runner, not a\
-    \ shorter calendar. A 6-month file is the same contents over a shorter vintage.\
+    \ date. Benchmarked sectionals are recalibrated as more samples arrive, so the\
+    \ same PastEvent in a file bought today can differ from a live API pull next season.\
+    \ Performance ratings are frozen only where BenchmarkedRun.trackSpeedVerified\
+    \ is true (manual review). Coverage of the historical window is about 97%. We\
+    \ may later review the remaining meetings, especially if an anomaly is found.\
+    \ Use trackSpeedVerified as the freeze flag in your models.\n\n**12 months** is\
+    \ the meeting window. **5 / 10 benchmarks** is premium depth on each runner, not\
+    \ a shorter calendar. A 6-month file is the same contents over a shorter vintage.\
     \ Two 6-month files are not sold as a substitute for 12 months.\n\nThe licence\
     \ is personal, to that vintage only. It survives later cancellation of the live\
     \ subscription; it is not refreshed once the live subscription ends. Commercial\
