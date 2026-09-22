@@ -1,0 +1,27 @@
+{
+  "_comment": "Active shortlist profiles. The engine shows these in the menu. Add your own here, or copy profiles from profiles_library/ into this list.",
+  "profiles": [
+    {
+      "name": "Quick back-up (1–5 days) over 1400m+",
+      "_comment": "Runners racing on a short back-up at a staying distance — often under-bet when the market forgets they ran recently.",
+      "output": "entry",
+      "tab_only": true,
+      "match": "ALL",
+      "criteria": [
+        { "scope": "race",  "field": "distance",              "op": ">=", "value": 1400 },
+        { "scope": "entry", "field": "days_last_run_to_race",  "op": ">=", "value": 1 },
+        { "scope": "entry", "field": "days_last_run_to_race",  "op": "<=", "value": 5 }
+      ]
+    },
+    {
+      "name": "Large fields (12+ runners)",
+      "_comment": "Races with a full field — useful for pace/price modelling where field size matters.",
+      "output": "race",
+      "tab_only": true,
+      "match": "ALL",
+      "criteria": [
+        { "scope": "race", "field": "field_size", "op": ">=", "value": 12 }
+      ]
+    }
+  ]
+}

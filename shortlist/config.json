@@ -1,0 +1,19 @@
+{
+  "_comment": "Form King Shortlist Engine — configuration. Replace FK-YOUR-API-KEY with your real API key from https://www.formking.com.au.",
+
+  "api_key": "FK-YOUR-API-KEY",
+  "base_url": "https://api.formking.com.au",
+
+  "_comment_cache": "Responses are cached locally for cache_hours hours to avoid redundant API calls. Increase if you run the tool frequently during the day.",
+  "cache_hours": 6,
+
+  "_comment_watchlist": "Restrict which meetings are scanned. Leave an array empty [] to include everything. You can filter by states, track names, or specific meeting IDs — or mix them.",
+  "watchlist": {
+    "states":      [],
+    "tracks":      [],
+    "meeting_ids": []
+  },
+
+  "_comment_output": "Folder (relative to this file) where shortlist CSVs are saved.",
+  "output_folder": "output"
+}

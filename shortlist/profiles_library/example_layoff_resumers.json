@@ -1,0 +1,25 @@
+{
+  "_comment": "Community profile — runners resuming from a significant spell. Useful for identifying horses that may be overlooked by the market after a long absence. Copy the profile object you want into profiles.json to activate it.",
+  "profiles": [
+    {
+      "name": "Resuming from 90+ day layoff",
+      "_comment": "Broader first-up filter — catches horses back from a meaningful rest without requiring an extreme layoff.",
+      "output": "entry",
+      "tab_only": true,
+      "match": "ALL",
+      "criteria": [
+        { "scope": "entry", "field": "days_last_run_to_race", "op": ">=", "value": 90 }
+      ]
+    },
+    {
+      "name": "Resuming from 300+ day layoff",
+      "_comment": "Strict first-up filter — horses returning from a long spell (injury, breeding prep, etc.).",
+      "output": "entry",
+      "tab_only": true,
+      "match": "ALL",
+      "criteria": [
+        { "scope": "entry", "field": "days_last_run_to_race", "op": ">=", "value": 300 }
+      ]
+    }
+  ]
+}

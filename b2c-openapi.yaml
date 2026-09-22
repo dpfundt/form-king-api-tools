@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: FormKing Modellers API
-  version: 1.0.8
+  version: 1.0.9
   summary: An AI-friendly Horse Racing API for data modellers, form analysts, professional
     punters and participants interested in performance data and automation.
   description: "**[Home](https://www.formking.com.au/) | API Docs**\n\nWelcome to\
@@ -216,31 +216,33 @@ info:
     \ and future API security measures or rate/data limits will result in termination\
     \ of access, and if required, those incidents will be reported to the relevant\
     \ industry and regulatory bodies, in line with our contractual obligations with\
-    \ these bodies.\n\n---\n\n## Release Notes\n\n### 1.0.8 (GA Release on 11/9/26)\n\
-    * Added API key and usage APIs for self-service and near-real-time balance query,\
-    \ key management and credit usage history.\n* Switched on live credit deduction.\
-    \ Added credit usage viewer/CSV download and API key management via Form King\
-    \ Web.\n* The [Ts and Cs](https://www.formking.com.au/api-terms) have been relaxed\
-    \ based on feedback and a review of the terms in v1.0.6. Personal Models are now\
-    \ separately defined, data deletion and retention rules have been relaxed\n* Added\
-    \ a statuses query parameter to Get Upcoming Meetings, to allow people to drop\
-    \ abandoned or nominations/weights meetings.\n* Uploaded API spec and documentation\
-    \ to our [GitHub](https://github.com/dpfundt/form-king-api-tools) page.\n* Added\
-    \ [API FAQ](https://www.formking.com.au/api-faq) page on Form King Web and marketing\
-    \ via homepage.\n* Partial credits are now rounded up at the response level (e.g\
-    \ numBenchmarks=8, the 1.5 credits is charged as 2 credits instead of 1).\n* Monthly\
-    \ bundled credits reset each period (2x month cap for longer subs); unpaid invoices\
-    \ zero the full bundled balance after 7 days.\n* Implemented top-up credit bundle\
-    \ purchase flow, via Form King Web.\n* Released historical data file pricing.\n\
-    \n\n### 1.0.7-beta (7/8/26)\n* Fixed a high priority point-in-time data issue\
-    \ (FK-758) whereby `Get Meeting Summary` and `Get Race Form` could return `PastEvent`\
-    \ records for today's race, or for future races.\n* Minor changes to API documentation\
-    \ containing more clarity around credit costs (round down/floor if partial credits\
-    \ would otherwise be charged).\n* Added the `includeScratchings` query parameter\
-    \ to the Get Race Form API, defaulting to false. By dropping scratched entries,\
-    \ those horses' profiles will not be fetched and benchmarks will not be included\
-    \ or charged. If passed as true, they will be included and charged.\n\n### 1.0.6-beta\
-    \ (6/8/26)\n* Updated our [API Terms](https://static.formking.com.au/b2c-api-terms-v-1.0.6.html)\
+    \ these bodies.\n\n---\n\n## Release Notes\n\n### 1.0.9 (16/9/26)\n* FK-795 Fixed\
+    \ point-in-time data issue with Get Meeting Summary and Get Race Form APIs, where\
+    \ it was using today's date instead of the meeting/race date to limit past form.\n\
+    \n### 1.0.8 (Initial GA Release on 11/9/26)\n* Added API key and usage APIs for\
+    \ self-service and near-real-time balance query, key management and credit usage\
+    \ history.\n* Switched on live credit deduction. Added credit usage viewer/CSV\
+    \ download and API key management via Form King Web.\n* The [Ts and Cs](https://www.formking.com.au/api-terms)\
+    \ have been relaxed based on feedback and a review of the terms in v1.0.6. Personal\
+    \ Models are now separately defined, data deletion and retention rules have been\
+    \ relaxed\n* Added a statuses query parameter to Get Upcoming Meetings, to allow\
+    \ people to drop abandoned or nominations/weights meetings.\n* Uploaded API spec\
+    \ and documentation to our [GitHub](https://github.com/dpfundt/form-king-api-tools)\
+    \ page.\n* Added [API FAQ](https://www.formking.com.au/api-faq) page on Form King\
+    \ Web and marketing via homepage.\n* Partial credits are now rounded up at the\
+    \ response level (e.g numBenchmarks=8, the 1.5 credits is charged as 2 credits\
+    \ instead of 1).\n* Monthly bundled credits reset each period (2x month cap for\
+    \ longer subs); unpaid invoices zero the full bundled balance after 7 days.\n\
+    * Implemented top-up credit bundle purchase flow, via Form King Web.\n* Released\
+    \ historical data file pricing.\n\n\n### 1.0.7-beta (7/8/26)\n* Fixed a high priority\
+    \ point-in-time data issue (FK-758) whereby `Get Meeting Summary` and `Get Race\
+    \ Form` could return `PastEvent` records for today's race, or for future races.\n\
+    * Minor changes to API documentation containing more clarity around credit costs\
+    \ (round down/floor if partial credits would otherwise be charged).\n* Added the\
+    \ `includeScratchings` query parameter to the Get Race Form API, defaulting to\
+    \ false. By dropping scratched entries, those horses' profiles will not be fetched\
+    \ and benchmarks will not be included or charged. If passed as true, they will\
+    \ be included and charged.\n\n### 1.0.6-beta (6/8/26)\n* Updated our [API Terms](https://static.formking.com.au/b2c-api-terms-v-1.0.6.html)\
     \ to reflect stronger security and usage policy. Please ensure you're familiar\
     \ and able to accept these terms before using the API.\n* Implemented the first\
     \ of our rate limiting policies (300 requests per 300 seconds across both Web\
@@ -913,6 +915,146 @@ paths:
       summary: Get Meeting Speedmaps
       tags:
       - Meetings
+  /b2c/account/historicaldata:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoricalDataProgressResponse'
+        '400':
+          description: Bad request (invalid or missing parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid credentials"
+        '403':
+          description: "Forbidden \u2014 access denied"
+        '404':
+          description: Not found
+        '500':
+          description: Internal server error
+      parameters: []
+      description: Lists your own historical data archives as full progress JSON objects
+        (same shape as GET /b2c/account/historicaldata/{archiveId}), sorted by startTime
+        descending. Always scoped to your own account, resolved from your API key
+        or Firebase JWT. Returns 404 if your account is not found or inactive.
+      summary: List My Historical Data Archives
+      tags:
+      - Account
+    post:
+      responses:
+        '202':
+          description: "Accepted \u2014 archive build started"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalDataResponse'
+        '400':
+          description: Bad request (invalid or missing parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid credentials"
+        '403':
+          description: "Forbidden \u2014 access denied"
+        '404':
+          description: Not found
+        '409':
+          description: Conflict (e.g. balance adjustment would go negative)
+        '500':
+          description: Internal server error
+        '503':
+          description: "Service Unavailable \u2014 unable to resolve product/tier\
+            \ configuration"
+      description: 'Requests a password-protected historical data archive for your
+        own account. Your `uid` is always resolved from your API key or Firebase JWT;
+        it is never read from the request body. Unlike the admin endpoint, this does
+        not queue the build immediately: it writes a progress sidecar with status
+        `APPROVAL_REQUIRED` and returns 202 with the initial progress JSON (including
+        the archive password); an admin must approve the request (best-effort notified
+        by email) before the build is queued. Optionally accepts a `message` field
+        (up to 1000 characters) describing your use case, included in the admin notification
+        email and echoed back in every subsequent progress/list/approval response.
+        Poll GET /b2c/account/historicaldata/{archiveId} to track the status as it
+        moves from `APPROVAL_REQUIRED` to `STARTING` to `IN_PROGRESS` to `COMPLETE`.
+        Returns 404 if your account is not found or inactive.'
+      summary: Request My Historical Data Archive
+      tags:
+      - Account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SelfServiceHistoricalDataRequest'
+  /b2c/account/historicaldata/{archiveId}:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalDataProgressResponse'
+        '400':
+          description: Bad request (invalid or missing parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid credentials"
+        '403':
+          description: "Forbidden \u2014 access denied"
+        '404':
+          description: Not found
+        '500':
+          description: Internal server error
+      parameters:
+      - name: archiveId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: UUID of the archive build whose progress to retrieve.
+      description: Returns the current progress JSON for one of your historical data
+        archive builds. Always scoped to your own account, resolved from your API
+        key or Firebase JWT. Returns 404 if the archive does not exist.
+      summary: Get My Historical Data Archive Progress
+      tags:
+      - Account
+  /b2c/account/historicaldata/{archiveId}/download:
+    get:
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoricalDataDownloadResponse'
+        '400':
+          description: Bad request (invalid or missing parameters)
+        '401':
+          description: "Unauthorized \u2014 missing or invalid credentials"
+        '403':
+          description: "Forbidden \u2014 access denied"
+        '404':
+          description: Not found
+        '500':
+          description: Internal server error
+        '409':
+          description: "Conflict \u2014 archive is not yet complete"
+      parameters:
+      - name: archiveId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: UUID of the archive build to download.
+      description: Generates a short-lived (5 minute) presigned S3 URL for downloading
+        one of your COMPLETE historical data archive zip files. Always scoped to your
+        own account, resolved from your API key or Firebase JWT. Returns 409 if the
+        archive's status is not yet COMPLETE.
+      summary: Get My Historical Data Archive Download Link
+      tags:
+      - Account
   /b2c/account/keys:
     post:
       responses:
@@ -1191,6 +1333,18 @@ components:
       description: 'Discriminated request body for POST /b2c/account/keys, selected
         by the `operation` field: `createApiKey` (CreateApiKeyRequest), `revokeApiKey`
         (RevokeApiKeyRequest), or `getAccountInfo` (GetAccountInfoRequest).'
+    ApprovalRequest:
+      type: object
+      title: ApprovalRequest
+      description: Optional request body for PUT /b2c/admin/historicaldata/{archiveId}/approval.
+        Controls whether a pending self-service archive request is approved or rejected.
+      properties:
+        approve:
+          type: boolean
+          default: true
+          description: 'true (or omitted) approves the request: status moves to `STARTING`
+            and the build is enqueued. false rejects the request: status moves to
+            `APPROVAL_REJECTED` and no build is enqueued.'
     BasicFluc:
       type: object
       title: BasicFluc
@@ -1909,6 +2063,262 @@ components:
       - synthetic
       description: A breakdown of a horse's win/place record by track condition category
         (synthetic, fast, slow, dead, good, heavy).
+    HistoricalDataDownloadResponse:
+      type: object
+      title: HistoricalDataDownloadResponse
+      description: Presigned download URL returned by GET /b2c/admin/historicaldata/{archiveId}/download.
+      properties:
+        url:
+          type: string
+          description: Presigned S3 URL for downloading the archive's zip file.
+        expiresIn:
+          type: integer
+          description: Number of seconds the presigned URL remains valid for (currently
+            300, i.e. 5 minutes).
+      required:
+      - url
+      - expiresIn
+    HistoricalDataProgressResponse:
+      type: object
+      title: HistoricalDataProgressResponse
+      description: Progress JSON returned by GET /b2c/admin/historicaldata/{archiveId}.
+        Includes the archive password on every poll, not just the initial STARTING
+        write.
+      properties:
+        archiveId:
+          type: string
+          description: UUID identifying this archive build.
+        status:
+          type: string
+          enum:
+          - APPROVAL_REQUIRED
+          - STARTING
+          - IN_PROGRESS
+          - COMPLETE
+          - ERROR
+          - APPROVAL_REJECTED
+          description: Current build status. `APPROVAL_REQUIRED` is the initial state
+            for a self-service request, pending admin approval, before it moves to
+            `STARTING` (approved) or `APPROVAL_REJECTED` (rejected).
+        uid:
+          type: string
+          description: Target account uid the archive is built for.
+        s3Bucket:
+          type: string
+          description: S3 bucket holding the archive and progress sidecar.
+        s3Key:
+          type: string
+          description: S3 object key for the finished archive.zip.
+        password:
+          type: string
+          description: AES password protecting the archive zip. Present in every progress
+            poll, not just at creation time.
+        numBenchmarks:
+          type: integer
+          enum:
+          - 5
+          - 10
+          description: Requested benchmark depth.
+        from:
+          type: string
+          description: Inclusive start date (DDMMYY).
+        to:
+          type: string
+          description: Inclusive end date (DDMMYY).
+        states:
+          type: string
+          nullable: true
+          description: Normalised CSV of requested state codes, or null when all states
+            were requested.
+        dates:
+          type: string
+          nullable: true
+          description: Comma-separated, deduped and sorted DDMMYY dates when explicit
+            dates were requested (overriding from/to for day selection), or null when
+            a from/to range was used instead.
+        startTime:
+          type: string
+          description: ISO-8601 UTC timestamp when the request was accepted.
+        progressTime:
+          type: string
+          description: ISO-8601 UTC timestamp of the most recent progress update.
+        daysProcessed:
+          type: integer
+          description: Number of calendar days processed so far.
+        totalDays:
+          type: integer
+          description: Total calendar days in the requested range.
+        percentComplete:
+          type: integer
+          description: Approximate completion percentage (0-100).
+        etaSeconds:
+          type: integer
+          description: Linearly extrapolated seconds remaining. Omitted early in the
+            build and on terminal COMPLETE.
+        errorSummary:
+          type: string
+          description: Error detail when status is ERROR; otherwise omitted or null.
+        sizeBytes:
+          type: integer
+          description: Byte size of the uploaded archive zip. Present only once status
+            is COMPLETE; omitted for STARTING/IN_PROGRESS/ERROR records, and also
+            omitted for archives completed before this field was introduced.
+        message:
+          type: string
+          description: Optional free-text use-case description supplied at creation
+            time. Omitted entirely (not null) when none was supplied; once set, it
+            is present on every subsequent progress/list/approval response.
+      required:
+      - archiveId
+      - status
+      - uid
+      - s3Bucket
+      - s3Key
+      - password
+      - numBenchmarks
+      - from
+      - to
+      - startTime
+    HistoricalDataRequest:
+      type: object
+      title: HistoricalDataRequest
+      properties:
+        uid:
+          oneOf:
+          - type: string
+          - type: array
+            items:
+              type: string
+          description: Firebase uid of the target b2capi account, or a list of uids.
+            Every uid must exist and be active. When a list with more than one uid
+            is supplied, the underlying archive data is built once and cloned (relabeled
+            with a fresh password and license.md) for each additional uid; the whole
+            request is rejected if any uid is invalid/inactive.
+        from:
+          type: string
+          pattern: ^\d{6}$
+          description: Inclusive start date in DDMMYY format (e.g. `010725` for 1
+            July 2025). Optional if `dates` is supplied, in which case it is ignored.
+        to:
+          type: string
+          pattern: ^\d{6}$
+          description: Inclusive end date in DDMMYY format. Must be greater than or
+            equal to `from`. Optional if `dates` is supplied, in which case it is
+            ignored.
+        dates:
+          type: string
+          description: Optional CSV of up to 10 explicit DDMMYY dates (e.g. `120725,240826`).
+            When supplied, overrides `from`/`to` for day selection; effective `from`/`to`
+            for the archive filename and progress display are computed as min/max
+            of `dates`. More than 10 values returns a 400 error.
+        numBenchmarks:
+          type: integer
+          enum:
+          - 5
+          - 10
+          description: Number of benchmarked past runs to include per runner. Exactly
+            5 or 10.
+        states:
+          type: string
+          description: Optional CSV of Australian state codes to include (VIC,NSW,ACT,QLD,NT,WA,SA,TAS).
+            Omit or empty for all states.
+        message:
+          type: string
+          maxLength: 1000
+          description: Optional free-text use-case description, up to 1000 characters.
+            Echoed back in every subsequent progress/list/approval response.
+      required:
+      - uid
+      - numBenchmarks
+      description: Request body for POST /b2c/admin/historicaldata. Specifies the
+        target account, benchmark depth, and optional state filter for an asynchronous
+        historical-data archive build. Either `dates` (up to 10 explicit DDMMYY values)
+        or both `from` and `to` (an inclusive DDMMYY range) must be supplied. An optional
+        `message` field (up to 1000 characters) can describe the use case for the
+        archive.
+    HistoricalDataResponse:
+      type: object
+      title: HistoricalDataResponse
+      description: STARTING progress JSON returned by POST /b2c/admin/historicaldata
+        (202). Byte-identical to the progress sidecar written to S3 at request time.
+      properties:
+        archiveId:
+          type: string
+          description: UUID identifying this archive build.
+        status:
+          type: string
+          enum:
+          - APPROVAL_REQUIRED
+          - STARTING
+          - IN_PROGRESS
+          - COMPLETE
+          - ERROR
+          - APPROVAL_REJECTED
+          description: Build status. `STARTING` on the admin-create 202 response;
+            `APPROVAL_REQUIRED` on the self-service 202 response, until an admin approves
+            or rejects it.
+        uid:
+          type: string
+          description: Target account uid the archive is built for.
+        s3Bucket:
+          type: string
+          description: S3 bucket holding the archive and progress sidecar.
+        s3Key:
+          type: string
+          description: S3 object key for the finished archive.zip.
+        progressKey:
+          type: string
+          description: S3 object key for the progress-{archiveId}.json sidecar.
+        password:
+          type: string
+          description: AES password protecting the archive zip. Present in this creation
+            response and in every subsequent progress poll.
+        numBenchmarks:
+          type: integer
+          enum:
+          - 5
+          - 10
+          description: Requested benchmark depth.
+        from:
+          type: string
+          description: Inclusive start date (DDMMYY).
+        to:
+          type: string
+          description: Inclusive end date (DDMMYY).
+        states:
+          type: string
+          nullable: true
+          description: Normalised CSV of requested state codes, or null when all states
+            were requested.
+        dates:
+          type: string
+          nullable: true
+          description: Comma-separated, deduped and sorted DDMMYY dates when explicit
+            dates were requested (overriding from/to for day selection), or null when
+            a from/to range was used instead.
+        apiVersion:
+          type: string
+          description: API version stamped into the archive metadata.
+        startTime:
+          type: string
+          description: ISO-8601 UTC timestamp when the request was accepted.
+        message:
+          type: string
+          description: Optional free-text use-case description supplied at creation
+            time. Omitted entirely (not null) when none was supplied.
+      required:
+      - archiveId
+      - status
+      - uid
+      - s3Bucket
+      - s3Key
+      - progressKey
+      - password
+      - numBenchmarks
+      - from
+      - to
+      - apiVersion
+      - startTime
     Horse:
       type: object
       title: Horse
@@ -3258,6 +3668,54 @@ components:
       title: SectionKey
       description: A unique key representing a specific section of a race (e.g., 'S-6'
         for Start to 600m, '12-F' for Last 1200m).
+    SelfServiceHistoricalDataRequest:
+      type: object
+      title: SelfServiceHistoricalDataRequest
+      properties:
+        from:
+          type: string
+          pattern: ^\d{6}$
+          description: Inclusive start date in DDMMYY format (e.g. `010725` for 1
+            July 2025). Optional if `dates` is supplied, in which case it is ignored.
+        to:
+          type: string
+          pattern: ^\d{6}$
+          description: Inclusive end date in DDMMYY format. Must be greater than or
+            equal to `from`. Optional if `dates` is supplied, in which case it is
+            ignored.
+        dates:
+          type: string
+          description: Optional CSV of up to 10 explicit DDMMYY dates (e.g. `120725,240826`).
+            When supplied, overrides `from`/`to` for day selection; effective `from`/`to`
+            for the archive filename and progress display are computed as min/max
+            of `dates`. More than 10 values returns a 400 error.
+        numBenchmarks:
+          type: integer
+          enum:
+          - 5
+          - 10
+          description: Number of benchmarked past runs to include per runner. Exactly
+            5 or 10.
+        states:
+          type: string
+          description: Optional CSV of Australian state codes to include (VIC,NSW,ACT,QLD,NT,WA,SA,TAS).
+            Omit or empty for all states.
+        message:
+          type: string
+          maxLength: 1000
+          description: Optional free-text use-case description, up to 1000 characters,
+            explaining why this archive is being requested. Shown to the admin reviewing
+            the pending approval, and echoed back in every subsequent progress/list/approval
+            response.
+      required:
+      - numBenchmarks
+      description: "Request body for POST /b2c/account/historicaldata. Same as HistoricalDataRequest,\
+        \ minus `uid` \u2014 your own uid is always used, resolved from your API key\
+        \ or Firebase JWT. Either `dates` (up to 10 explicit DDMMYY values) or both\
+        \ `from` and `to` (an inclusive DDMMYY range) must be supplied. The resulting\
+        \ archive is not built immediately; it is queued for admin approval (status\
+        \ `APPROVAL_REQUIRED`). An optional `message` field (up to 1000 characters)\
+        \ lets you describe your use case for the admin reviewing the request."
     Speedmap:
       type: object
       title: Speedmap

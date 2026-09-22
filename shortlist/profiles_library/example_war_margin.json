@@ -1,0 +1,25 @@
+{
+  "_comment": "Community profile — runners rated significantly clear of their field using Form King Weight-Adjusted Rating (Weight Adjusted Rating) margin fields. Requires fields/war_margin.py (included by default). Copy the profile object you want into profiles.json to activate it.",
+  "profiles": [
+    {
+      "name": "Last-start rating 3+ points clear of field",
+      "_comment": "Runner's most-recent Form King Weight Adjusted Rating is at least 3 points above the best-rated rival. Quick signal — only considers the last start.",
+      "output": "entry",
+      "tab_only": true,
+      "match": "ALL",
+      "criteria": [
+        { "scope": "entry", "field": "ls_war_margin_over_field", "op": ">=", "value": 3 }
+      ]
+    },
+    {
+      "name": "Best-2-of-last-3 rating 5+ points clear of field",
+      "_comment": "More stable than last-start alone — averages the runner's two best Form King Weight Adjusted Ratings from its last three valid starts, then compares to the best rival. A 5-point margin is a meaningful edge.",
+      "output": "entry",
+      "tab_only": true,
+      "match": "ALL",
+      "criteria": [
+        { "scope": "entry", "field": "avg_best2_last3_war_margin_over_field", "op": ">=", "value": 5 }
+      ]
+    }
+  ]
+}
