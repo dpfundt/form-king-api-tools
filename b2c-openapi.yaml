@@ -216,12 +216,30 @@ info:
     \ and future API security measures or rate/data limits will result in termination\
     \ of access, and if required, those incidents will be reported to the relevant\
     \ industry and regulatory bodies, in line with our contractual obligations with\
-    \ these bodies.\n\n---\n\n## Release Notes\n\n### 1.0.9 (16/9/26)\n* FK-795 Fixed\
+    \ these bodies.\n\n---\n\n## Release Notes\n\n### 1.0.9 (02/10/26)\n* FK-795 Fixed\
     \ point-in-time data issue with Get Meeting Summary and Get Race Form APIs, where\
     \ it was using today's date instead of the meeting/race date to limit past form.\n\
-    \n### 1.0.8 (Initial GA Release on 11/9/26)\n* Added API key and usage APIs for\
-    \ self-service and near-real-time balance query, key management and credit usage\
-    \ history.\n* Switched on live credit deduction. Added credit usage viewer/CSV\
+    * FK-800 Fixed a number of point-in-time data integrity issues with LWS, EXP and\
+    \ even weight carried + weight adjusted ratings, where post-meeting intel was\
+    \ leaking into the pre-race data.\n* RaceEntry::ratings and RaceSummary|RaceLite::lws\
+    \ are now frozen at the jump and guaranteed to be built on pre-race data only.\n\
+    * EXP calculation was moved from being based on RaceEntry:odds::bestNow to the\
+    \ latest corporate bookmaker average fluc up to, and including the scheduled race\
+    \ jump time.\n* A timestamp was added to the RaceEntry:odds to prove/signal when\
+    \ the latest bestNow odds data came in.\n* A flucs array was added to the RaceEntry:odds,\
+    \ which provides the full list of corporate bookmaker average flucs per runner,\
+    \ throughout betting, truncated at the scheduled race time.\n* Added country,\
+    \ warningScore and reviewStatus to MeetingSummary, and country, reviewStatus to\
+    \ MeetingLite.\n* Added warningScore and reviewStatus to BenchmarkedRun, so that\
+    \ modellers can better understand the stability of ratings and sectional data.\n\
+    * Added exp and lws to the PastEvent data type. These are the frozen pre-race\
+    \ values for those past runs.\n* Added an API for users to request a historical\
+    \ data file. This can also be performed via FK Web.\n* Added a table to this API\
+    \ documentation on point-in-time integrity, helping consumers understand which\
+    \ fields are safe for modelling, and which are subject to change as more samples\
+    \ arrive.\n\n### 1.0.8 (Initial GA Release on 11/9/26)\n* Added API key and usage\
+    \ APIs for self-service and near-real-time balance query, key management and credit\
+    \ usage history.\n* Switched on live credit deduction. Added credit usage viewer/CSV\
     \ download and API key management via Form King Web.\n* The [Ts and Cs](https://www.formking.com.au/api-terms)\
     \ have been relaxed based on feedback and a review of the terms in v1.0.6. Personal\
     \ Models are now separately defined, data deletion and retention rules have been\
@@ -443,8 +461,6 @@ paths:
           description: "Payment Required \u2014 insufficient credit balance"
         '403':
           description: "Forbidden \u2014 access denied or tier restricted"
-        '404':
-          description: Not found
         '429':
           description: "Too Many Requests \u2014 rate limit exceeded"
         '500':
@@ -515,7 +531,9 @@ paths:
         `{ddmmyy}` path parameter must be in DDMMYY format (e.g. `010725` for 1 July
         2025). Requests for dates earlier than the currently configured minimum meeting
         date (010725) will be rejected; this minimum date is progressively lowered
-        as historical data is cleaned. Cost: 1 credit per call (base cost).'
+        as historical data is cleaned. Dates with no scheduled racing return a 200
+        response with an empty array, rather than a 404. Cost: 1 credit per call (base
+        cost).'
       summary: Get Meetings By Date
       tags:
       - Meetings
@@ -1434,6 +1452,11 @@ components:
           type: number
           description: Rail position from True (0) in metres.
           example: 0.0
+        reviewStatus:
+          $ref: '#/components/schemas/ReviewStatus'
+          description: An enum representing the status of the data review (sectionals,
+            ratings) for this meeting. This is a very important flag for deciding
+            how stable the data is for the future.
         season:
           type: string
           description: Racing season identifier.
@@ -1478,6 +1501,11 @@ components:
           description: Overall time performance for this runner, represented in lengths
             +/- the Form King Track benchmark. This figure is adjusted for track speed,
             but not tempo.
+        warningScore:
+          type: integer
+          description: A points score assigned to the meeting based on the amount
+            of uncertainty/discrepancy in the timing and rating data. A value of 1
+            or less is considered low risk and would qualify for a computer Auto Review.
         wfaRat:
           type: number
           description: Form King Performance Rating for this runner, adjusted to the
@@ -1496,7 +1524,6 @@ components:
       - raceRunners
       - railMetres
       - season
-      - sections
       - sp
       - speedRating
       - vsAllAvg
@@ -2501,6 +2528,23 @@ components:
       description: A single horse result, which contains information about the horse's
         position in the race, starting price, margin, jockey, actual weight carried
         and other relevant details. Often included within a RaceEntry entity.
+    IdAndType:
+      type: object
+      title: IdAndType
+      properties:
+        id:
+          type: string
+          description: The third-party identifier (e.g. a Betfair market or selection
+            id).
+        type:
+          type: string
+          description: The type of the third-party identifier, as defined by the third-party
+            provider (e.g. "WIN" or "PLACE" for Betfair).
+      required:
+      - id
+      - type
+      description: An identifier and its type from a third-party system (e.g. a Betfair
+        market id and its market type, such as WIN or PLACE).
     JockeyForm:
       type: object
       title: JockeyForm
@@ -2552,10 +2596,24 @@ components:
     MeetingSummary:
       type: object
       properties:
+        country:
+          type: string
+          description: The country where this meeting is/was held. Australia, New
+            Zealand and Hong Kong are currently supported values.
         date:
           type: integer
           description: Meeting date as a UNIX timestamp in milliseconds (UTC).
           example: 1778803200000
+        going:
+          type: string
+          description: Official track condition (e.g., Fast, Good, Dead, Slow, Heavy,
+            Synthetic, Dirt).
+          example: Heavy
+        goingNumber:
+          type: integer
+          description: Numeric representation of the official track condition (1 -
+            10).
+          example: 10
         id:
           type: string
           description: The Form King unique identifier for the meeting.
@@ -2586,6 +2644,11 @@ components:
           description: Amount of rain that has fallen leading up to the meeting, if
             available.
           example: 17mm last 24hrs, 22mm last 7 days
+        reviewStatus:
+          $ref: '#/components/schemas/ReviewStatus'
+          description: An enum representing the status of the data review (sectionals,
+            ratings) for this meeting. This is a very important flag for deciding
+            how stable the data is for the future.
         state:
           type: string
           description: The state or territory where the meeting is held.
@@ -2608,9 +2671,17 @@ components:
           description: Timestamp of the last update to the meeting data within Form
             King.
           example: 1778835991506
+        warningScore:
+          type: integer
+          description: A points score assigned to the meeting based on the amount
+            of uncertainty/discrepancy in the timing and rating data. A value of 1
+            or less is considered low risk and would qualify for a computer Auto Review.
       required:
+      - country
       - id
+      - reviewStatus
       - updated
+      - warningScore
       description: A comprehensive summary of a racing meeting, including detailed
         race and runner information. Full runner past form is not included, but the
         most recent 12 starts is there, with weight-adjusted and WFA ratings.
@@ -2618,6 +2689,10 @@ components:
     MeetingSummaryLite:
       type: object
       properties:
+        country:
+          type: string
+          description: The country where this meeting is/was held. Australia, New
+            Zealand and Hong Kong are currently supported values.
         date:
           type: integer
           description: Meeting date as a UNIX timestamp in milliseconds (UTC).
@@ -2662,6 +2737,11 @@ components:
           description: Amount of rain that has fallen leading up to the meeting, if
             available.
           example: 17mm last 24hrs, 22mm last 7 days
+        reviewStatus:
+          $ref: '#/components/schemas/ReviewStatus'
+          description: An enum representing the status of the data review (sectionals,
+            ratings) for this meeting. This is a very important flag for deciding
+            how stable the data is for the future.
         state:
           type: string
           description: The state or territory where the meeting is held.
@@ -2680,10 +2760,39 @@ components:
           description: Name of the racecourse holding this meeting.
           example: Albany
       required:
+      - country
       - id
+      - reviewStatus
       description: A lightweight summary of a racing meeting, typically used as an
         index, for example - upcoming meetings.
       title: MeetingSummaryLite
+    OfficialTiming:
+      type: object
+      title: OfficialTiming
+      properties:
+        deltaLengths:
+          type: number
+          description: The winner's margin, expressed in lengths, over the field at
+            the sectional point.
+        sectionalDistance:
+          type: integer
+          description: Distance, in metres, over which the official sectional time
+            was recorded.
+        sectionalTimeInMillis:
+          type: integer
+          description: Official sectional time recorded for sectionalDistance, in
+            milliseconds.
+        timeInMillis:
+          type: integer
+          description: Official race finish time, in milliseconds.
+      required:
+      - deltaLengths
+      - sectionalDistance
+      - sectionalTimeInMillis
+      - timeInMillis
+      description: Official post-race timing data for a race, including finish time
+        and sectional distance/time information. Only present once the race has been
+        resulted and official timing captured.
     PastEvent:
       type: object
       title: PastEvent
@@ -2732,6 +2841,11 @@ components:
           type: integer
           description: Race distance in metres.
           example: 1100
+        exp:
+          type: number
+          description: The pre-race EXP (market expected rating) for this runner,
+            in this past race. Uses the last available corporate bookmaker average
+            price, no later than the scheduled race start time.
         fieldStrength:
           type: number
           description: Strength of the field in this past race.
@@ -2762,6 +2876,11 @@ components:
           type: string
           description: Jockey who rode in this past event.
           example: Tommy Berry
+        lws:
+          type: number
+          description: The Likely Winning Standard value shown in the Form Guide,
+            representing the computer's pre-race guess of the strength of this past
+            race before it was run, at the weights carried on the Form King scale.
         margin:
           type: number
           description: Distance beaten (or winning margin).
@@ -2863,6 +2982,11 @@ components:
           type: string
           description: Australian state where the race was held.
           example: NSW
+        stewardsComment:
+          type: string
+          description: A Stewards' comment, containing official notes relating to
+            this runner in the race. Not present if no Stewards notes were made against
+            the runner.
         subsequentForm:
           type: object
           additionalProperties:
@@ -2912,6 +3036,10 @@ components:
         trial:
           type: boolean
           description: Whether this was a barrier trial rather than a race.
+        videoComment:
+          type: string
+          description: A video form comment containing key notes for this runner in
+            the race - where data is available only.
         weight:
           type: number
           description: Weight carried in this race.
@@ -3329,6 +3457,10 @@ components:
             (say from $4 - a 25% chance to $5 - a 20% chance). This value is normalised
             for bookmaker % change and scratchings, making it a great indicator of
             where money is (or isn't) being placed.
+        flucs:
+          type: string
+          description: The complete list of (corporate bookmaker average price) betting
+            fluctuations for this runner, since open.
         timestamp:
           type: integer
           description: The time of the latest fluctuation, as a Unix timestamp in
@@ -3339,6 +3471,7 @@ components:
       - bestBookies
       - bestNow
       - firmOrDrift
+      - flucs
       - timestamp
       description: An object containing basic live market odds information for the
         RaceEntry. This field will only be present if we have obtained an odds market
@@ -3351,10 +3484,10 @@ components:
         exp:
           type: number
           description: The runner's market expected rating on the Form King scale.
-            This value is calculated from the market opinion, using the RaceEntry::odds::bestNow
-            value, and the Race::lws (likely winning standard) and Race::expAdj value,
-            which helps frame the expected rating nicely within past ratings for today's
-            race.
+            This value is calculated from the market opinion, using the latest RaceEntry::odds::flucs
+            value (not after the scheduled race time), and the Race::lws (likely winning
+            standard) and Race::expAdj value, which helps frame the expected rating
+            nicely within past ratings for today's race.
         neural:
           type: number
           description: The Form King Neural rating. This is not a measure of performance,
@@ -3369,7 +3502,12 @@ components:
           type: number
           description: The runner's 12 month peak rating on the Form King scale, adjusted
             to weight carried today.
-      required: []
+        timestamp:
+          type: string
+          description: The timestamp matching the fluc used for the exp calculation,
+            as a Unix timestamp in UTC (milliseconds since Epoch).
+      required:
+      - timestamp
       description: A convenience object that contains a series of ratings for the
         RaceEntry in today's race. Contains the Form King Neural Rating, and the Market
         Expected Rating (EXP, when odds market is available).
@@ -3397,7 +3535,8 @@ components:
         lws:
           type: number
           description: The Likely Winning Standard value shown in the Form Guide,
-            representing the computer's guess of the strength of this race.
+            representing the computer's pre-race guess of the strength of this race,
+            at the weights carried on the Form King scale.
         name:
           type: string
           description: Full name of the race.
@@ -3429,6 +3568,15 @@ components:
           type: string
           description: Current status of the race (e.g., OPEN, CLOSED, FINAL).
           example: FINAL_FIELDS
+        thirdPartyIds:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/IdAndType'
+          description: A map of third-party provider name (e.g. BETFAIR) to a list
+            of id/type pairs, allowing this race to be cross-referenced against markets
+            in that third-party system.
         totalPrizeMoney:
           type: number
           description: Total prize money for this race.
@@ -3502,7 +3650,8 @@ components:
         lws:
           type: number
           description: The Likely Winning Standard value shown in the Form Guide,
-            representing the computer's guess of the strength of this race.
+            representing the computer's pre-race guess of the strength of this race,
+            at the weights carried on the Form King scale.
         meetingId:
           type: string
         name:
@@ -3525,6 +3674,8 @@ components:
           type: integer
           description: The race number on the card.
           example: 1
+        officialTiming:
+          $ref: '#/components/schemas/OfficialTiming'
         prizemoneyGrade:
           type: string
           description: Grade/category of the race, based on prizemoney. Possible values
@@ -3572,6 +3723,15 @@ components:
           description: Indicates whether the meeting is graded as TAB professional
             or not.
           example: true
+        thirdPartyIds:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/IdAndType'
+          description: A map of third-party provider name (e.g. BETFAIR) to a list
+            of id/type pairs, allowing this race to be cross-referenced against markets
+            in that third-party system.
         totalPrizeMoney:
           type: number
           description: Total prize money pool for the race in Australian dollars (AUD),
@@ -3606,6 +3766,17 @@ components:
         form history from their horse profile. Data depth will depend on subscription
         level.
       title: RaceSummary
+    ReviewStatus:
+      type: string
+      enum:
+      - NOT_READY
+      - NOT_STARTED
+      - IN_PROGRESS
+      - COMPLETE
+      - AUTO_REVIEWED
+      title: ReviewStatus
+      description: The status of the sectional/ratings data review process for this
+        record (see also `reviewStatus` on Meeting and BenchmarkedRun).
     RevokeApiKeyRequest:
       type: object
       title: RevokeApiKeyRequest
