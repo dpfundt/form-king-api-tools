@@ -234,18 +234,20 @@ info:
     \ modellers can better understand the stability of ratings and sectional data.\n\
     * Added exp and lws to the PastEvent data type. These are the frozen pre-race\
     \ values for those past runs.\n* Added an API for users to request a historical\
-    \ data file. This can also be performed via FK Web.\n* Added a table to this API\
-    \ documentation on point-in-time integrity, helping consumers understand which\
-    \ fields are safe for modelling, and which are subject to change as more samples\
-    \ arrive.\n\n### 1.0.8 (Initial GA Release on 11/9/26)\n* Added API key and usage\
-    \ APIs for self-service and near-real-time balance query, key management and credit\
-    \ usage history.\n* Switched on live credit deduction. Added credit usage viewer/CSV\
-    \ download and API key management via Form King Web.\n* The [Ts and Cs](https://www.formking.com.au/api-terms)\
-    \ have been relaxed based on feedback and a review of the terms in v1.0.6. Personal\
-    \ Models are now separately defined, data deletion and retention rules have been\
-    \ relaxed\n* Added a statuses query parameter to Get Upcoming Meetings, to allow\
-    \ people to drop abandoned or nominations/weights meetings.\n* Uploaded API spec\
-    \ and documentation to our [GitHub](https://github.com/dpfundt/form-king-api-tools)\
+    \ data file. This can also be performed via FK Web.\n* Removed any ratings or\
+    \ benchmarks for Non-TAB or jumps races.\n* Removed deprecated field RaceEntry::metadata::peakRatings.\
+    \ Use RaceEntry::ratings::peak and RaceEntry::ratings::peak12m.\n* Added a table\
+    \ to this API documentation on point-in-time integrity, helping consumers understand\
+    \ which fields are safe for modelling, and which are subject to change as more\
+    \ samples arrive.\n\n### 1.0.8 (Initial GA Release on 11/9/26)\n* Added API key\
+    \ and usage APIs for self-service and near-real-time balance query, key management\
+    \ and credit usage history.\n* Switched on live credit deduction. Added credit\
+    \ usage viewer/CSV download and API key management via Form King Web.\n* The [Ts\
+    \ and Cs](https://www.formking.com.au/api-terms) have been relaxed based on feedback\
+    \ and a review of the terms in v1.0.6. Personal Models are now separately defined,\
+    \ data deletion and retention rules have been relaxed\n* Added a statuses query\
+    \ parameter to Get Upcoming Meetings, to allow people to drop abandoned or nominations/weights\
+    \ meetings.\n* Uploaded API spec and documentation to our [GitHub](https://github.com/dpfundt/form-king-api-tools)\
     \ page.\n* Added [API FAQ](https://www.formking.com.au/api-faq) page on Form King\
     \ Web and marketing via homepage.\n* Partial credits are now rounded up at the\
     \ response level (e.g numBenchmarks=8, the 1.5 credits is charged as 2 credits\
@@ -1785,6 +1787,22 @@ components:
       - description
       - maxCategory
       - minCategory
+    Fluctuation:
+      type: object
+      title: Fluctuation
+      properties:
+        price:
+          type: number
+          description: The average corporate bookmaker price at this point in time.
+        time:
+          type: integer
+          description: Unix timestamp (UTC milliseconds since epoch) representing
+            the time of this fluctuation.
+      required:
+      - price
+      - time
+      description: Wraps a single price (decimal odds) fluctuation, with accompanying
+        timestamp.
     Form:
       type: object
       title: Form
@@ -3458,7 +3476,9 @@ components:
             for bookmaker % change and scratchings, making it a great indicator of
             where money is (or isn't) being placed.
         flucs:
-          type: string
+          type: array
+          items:
+            $ref: '#/components/schemas/Fluctuation'
           description: The complete list of (corporate bookmaker average price) betting
             fluctuations for this runner, since open.
         timestamp:
@@ -3503,7 +3523,7 @@ components:
           description: The runner's 12 month peak rating on the Form King scale, adjusted
             to weight carried today.
         timestamp:
-          type: string
+          type: integer
           description: The timestamp matching the fluc used for the exp calculation,
             as a Unix timestamp in UTC (milliseconds since Epoch).
       required:
