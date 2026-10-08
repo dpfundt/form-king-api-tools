@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: FormKing Modellers API
-  version: 1.0.9
+  version: 1.1.0
   summary: An AI-friendly Horse Racing API for data modellers, form analysts, professional
     punters and participants interested in performance data and automation.
   description: "**[Home](https://www.formking.com.au/) | API Docs**\n\nWelcome to\
@@ -159,34 +159,100 @@ info:
     \            |\n| **Professional**   | 50,000        | $400.00     | $8.00   \
     \                        | 20.0%            |\n| **Data Scientist** | 100,000\
     \       | $750.00     | $7.50                           | 25.0%            |\n\
-    \n---\n\n## Historical Data Files\nWhile it is perfectly OK to use Bundled and\
-    \ Top-Up credits for pulling historical data, a much more affordable alternative\
-    \ is to purchase a historical data file bundle. Historical files are available\
-    \ only to **current Form King Web subscribers** whose use case we have approved.\
-    \ Files cover Australian **TAB professional** thoroughbred meetings only.\n\n\
-    Each file includes the following point-in-time* data, for the purchased jurisdiction\
-    \ and window:\n\n- Meeting/Race/RaceEntry particulars (per the MeetingSummary\
-    \ and RaceSummary schema types in this document. Includes FK Neural, EXP and bestOdds\
-    \ flucs, as well as HorseResult with SP, Betfair SP and more)\n- Meeting speedmaps\n\
-    - Full career form (PastEvent items) for each runner\n- Benchmarked Sectionals\
-    \ and Performance Ratings (BenchmarkedRun items inside a PastEvent) to the purchased\
-    \ depth (most recent 5 or 10)\n\n> *Point-in-time: meeting, race and runner fields\
-    \ (including Neural, EXP, odds/flucs and official results) are as-at meeting date\
-    \ / jump time, or as-at result for HorseResult. They are not rewritten at a later\
-    \ date. Benchmarked sectionals are recalibrated as more samples arrive, so the\
-    \ same PastEvent in a file bought today can differ from a live API pull next season.\
-    \ Performance ratings are frozen only where BenchmarkedRun.trackSpeedVerified\
-    \ is true (manual review). Coverage of the historical window is about 97%. We\
-    \ may later review the remaining meetings, especially if an anomaly is found.\
-    \ Use trackSpeedVerified as the freeze flag in your models.\n\n**12 months** is\
-    \ the meeting window. **5 / 10 benchmarks** is premium depth on each runner, not\
-    \ a shorter calendar. A 6-month file is the same contents over a shorter vintage.\
-    \ Two 6-month files are not sold as a substitute for 12 months.\n\nThe licence\
-    \ is personal, to that vintage only. It survives later cancellation of the live\
-    \ subscription; it is not refreshed once the live subscription ends. Commercial\
-    \ use is a separate licence (contact us for our Enterprise API historical and\
-    \ go-forward pricing).\n\n| Jurisdiction (AUS only*) | 12 mo \xB7 10 bm | 12 mo\
-    \ \xB7 5 bm | 6 mo \xB7 10 bm | 6 mo \xB7 5 bm |\n|:-------------------------|:--------------|:-------------|:-------------|:------------|\n\
+    \n---\n\n## Point-in-Time Data Integrity\nA key design goal of this API is clarity\
+    \ around *when* a field's value is final, versus when it might change as more\
+    \ data arrives. Every in-scope field in this specification carries a machine-readable\
+    \ `x-pointInTimeStability` vendor extension (see the `PointInTimeStability` schema),\
+    \ and a matching \"Point-in-time integrity\" note appended to its description,\
+    \ using one of the 5 classifications below:\n\n| Classification | Meaning |\n\
+    |:----------------|:--------|\n| `FROZEN_PRE_RACE` | Locked at the scheduled race\
+    \ jump time and never rewritten afterwards. Safe to model against forever. |\n\
+    | `FROZEN_POST_RESULT` | Locked once the race is officially resulted. May rarely\
+    \ be amended by a stewards' disqualification or protest ruling issued weeks or\
+    \ months after the meeting. |\n| `RECALCULATED` | Always recalculated and never\
+    \ frozen - treat a historical snapshot as \"as at extraction time\" only, and\
+    \ never as ground truth safe for modelling. |\n| `FROZEN_ON_REVIEW` | Behaves\
+    \ like `RECALCULATED` until the record passes manual review (`BenchmarkedRun.reviewStatus\
+    \ == COMPLETE` / `trackSpeedVerified == true`), after which the value will not\
+    \ change for any reason, short of a significant error being found. |\n| `VERSIONED_ON_REVIEW`\
+    \ | Behaves like `RECALCULATED` until the record passes manual review, at which\
+    \ point the value is frozen and versioned for that record - but it may still be\
+    \ recalculated again in future (as a new version), leaving the previously-versioned\
+    \ value intact. |\n\n### Examples by tier\n\n| Tier | Example fields |\n|:-----|:----------------|\n\
+    | `FROZEN_PRE_RACE` | `RaceEntry::odds` and `RaceEntry::ratings` (and all their\
+    \ sub-fields), `RaceEntry::barrier`, `RaceEntry::number`, `RaceSummary::number`\
+    \ and most other pre-race identity/form fields. |\n| `FROZEN_POST_RESULT` | `HorseResult`,\
+    \ `Placing`, `OfficialTiming`, and the rest of `BenchmarkedRun` not listed under\
+    \ `FROZEN_ON_REVIEW`/`VERSIONED_ON_REVIEW` below. |\n| `RECALCULATED` | `PastEvent::subsequentForm`\
+    \ - always recalculated and never safe for modelling against. |\n| `FROZEN_ON_REVIEW`\
+    \ | `BenchmarkedRun::atWeights`, `wfaRat`, `expectedRating`, the freeze metadata\
+    \ fields `frozen`, `freezeDate`, `reviewTimestamp`, and `PastEvent::trackSpeedVerified`,\
+    \ once `reviewStatus` reaches `COMPLETE` / `trackSpeedVerified` is `true` for\
+    \ that meeting. |\n| `VERSIONED_ON_REVIEW` | `BenchmarkedRun::sections`, `vsAllAvg`,\
+    \ `vsClass`, `vsTrack`, `speedRating`, the par provenance fields `parSamples`,\
+    \ `parCreationDate`, `scaledFromDistance`, `parHash`, and `PastEvent::trackSpeed`,\
+    \ once reviewed and versioned - still subject to a future re-versioning as more\
+    \ samples accumulate. |\n\n### Freeze metadata (BenchmarkedRun)\nFrom v1.1.0,\
+    \ each `BenchmarkedRun` carries optional annotations so modellers can tell whether\
+    \ a benchmark is frozen, when it was frozen, and which par times powered it:\n\
+    \n* `frozen` (boolean) - whether this benchmark has been frozen. Use it as a direct\
+    \ freeze flag in your models.\n* `freezeDate` (UTC millis) - the point in time\
+    \ when the benchmark was frozen.\n* `reviewTimestamp` (UTC millis) - from 8 October\
+    \ 2026, the time that the benchmark moved into `reviewStatus = COMPLETE`.\n* `parSamples`\
+    \ (integer) - the number of historical samples for the race at this distance that\
+    \ power the benchmarks. For odd distances scaled from standard distances, this\
+    \ includes both sets of samples.\n* `parCreationDate` (UTC millis) - when the\
+    \ par times powering these benchmarks were generated. For retrospectively frozen\
+    \ benchmarks this is after the race occurred.\n* `scaledFromDistance` (integer)\
+    \ - only set if the pars were scaled from another standard distance with more\
+    \ samples (e.g. a 1206m race scaled from a 1200m par).\n* `parHash` (string) -\
+    \ a unique digest of the ingredients used to make the par times. Handy for checking\
+    \ that the par has not changed when you re-pull data.\n\n**Retrospective freeze:**\
+    \ the freeze concept was introduced in API version 1.1.0 on 8 October 2026. Benchmarks\
+    \ that existed before then were retrospectively frozen and given 8 October 2026\
+    \ as their `freezeDate`, so for those, `freezeDate` and `reviewTimestamp` do not\
+    \ reflect the original race or review time. These fields are optional and may\
+    \ be absent where no value has been recorded.\n\nFor exhaustive, field-by-field\
+    \ detail, refer to the `x-pointInTimeStability` tag present on every in-scope\
+    \ property throughout the full specification below.\n\n---\n\n## Historical Data\
+    \ Files\nWhile it is perfectly OK to use Bundled and Top-Up credits for pulling\
+    \ historical data, a much more affordable alternative is to purchase a historical\
+    \ data file bundle. Historical files are available only to **current Form King\
+    \ Web subscribers** whose use case we have approved. Files cover Australian **TAB\
+    \ professional** thoroughbred meetings only.\n\nEach file includes the following\
+    \ point-in-time* data, for the purchased jurisdiction and window:\n\n- Meeting/Race/RaceEntry\
+    \ particulars (per the MeetingSummary and RaceSummary schema types in this document.\
+    \ Includes FK Neural, EXP and bestOdds flucs, as well as HorseResult with SP,\
+    \ Betfair SP and more)\n- Meeting speedmaps\n- Full career form (PastEvent items)\
+    \ for each runner\n- Benchmarked Sectionals and Performance Ratings (BenchmarkedRun\
+    \ items inside a PastEvent) to the purchased depth (most recent 5 or 10)\n\n>\
+    \ *Point-in-time: meeting, race and runner fields (including Neural, EXP, odds/flucs\
+    \ and official results) are as-at meeting date / jump time, or as-at result for\
+    \ HorseResult. They are not rewritten at a later date. Benchmarked sectionals\
+    \ and performance ratings are recalibrated as more samples arrive, so the same\
+    \ BenchmarkedRun in a file bought today can differ from a live API pull next season,\
+    \ right up until `BenchmarkedRun.reviewStatus` reaches `COMPLETE` and `trackSpeedVerified`\
+    \ is `true` (these two together constitute a manual review) - at which point `FROZEN_ON_REVIEW`\
+    \ fields (e.g. `atWeights`, `wfaRat`, `expectedRating`) stop changing for any\
+    \ reason, and `VERSIONED_ON_REVIEW` fields (e.g. `sections`, `vsAllAvg`, `vsClass`,\
+    \ `vsTrack`, `speedRating`) are frozen and versioned with the parHash, but may\
+    \ still be recalculated again later as a new version. Manual review coverage of\
+    \ the historical window is above 90%. We may later review the remaining meetings,\
+    \ and if this happens, those values will become frozen/versioned at that time.\
+    \ Use `BenchmarkedRun.frozen` as the freeze flag in your models. The one known\
+    \ RECALCULATED and non-modelling safe field is PastEvent::subsequentForm, which\
+    \ currently contains new samples every time form comes out of that past run. A\
+    \ Get Subsequent Form API is being constructed to help modellers achieve point-in-time\
+    \ safety for sub form+ratings. See the Point-in-Time Data Integrity section above\
+    \ for the full taxonomy.\n\n**12 months** is the meeting window. **5 / 10 benchmarks**\
+    \ is premium depth on each runner, not a shorter calendar. A 6-month file is the\
+    \ same contents over a shorter vintage. Two 6-month files are not sold as a substitute\
+    \ for 12 months.\n\nThe licence is personal, to that vintage only. It survives\
+    \ later cancellation of the live subscription; it is not refreshed once the live\
+    \ subscription ends. Commercial use is a separate licence (contact us for our\
+    \ Enterprise API historical and go-forward pricing).\n\n| Jurisdiction (AUS only*)\
+    \ | 12 mo \xB7 10 bm | 12 mo \xB7 5 bm | 6 mo \xB7 10 bm | 6 mo \xB7 5 bm |\n\
+    |:-------------------------|:--------------|:-------------|:-------------|:------------|\n\
     | **VIC**                  | $599.00 | $329.00 | $419.00 | $230.00 |\n| **NSW\
     \ + ACT**            | $599.00 | $329.00 | $419.00 | $230.00 |\n| **QLD**    \
     \              | $399.00 | $219.00 | $279.00 | $153.00 |\n| **WA**           \
@@ -216,17 +282,28 @@ info:
     \ and future API security measures or rate/data limits will result in termination\
     \ of access, and if required, those incidents will be reported to the relevant\
     \ industry and regulatory bodies, in line with our contractual obligations with\
-    \ these bodies.\n\n---\n\n## Release Notes\n\n### 1.0.9 (02/10/26)\n* FK-795 Fixed\
-    \ point-in-time data issue with Get Meeting Summary and Get Race Form APIs, where\
-    \ it was using today's date instead of the meeting/race date to limit past form.\n\
-    * FK-800 Fixed a number of point-in-time data integrity issues with LWS, EXP and\
-    \ even weight carried + weight adjusted ratings, where post-meeting intel was\
-    \ leaking into the pre-race data.\n* RaceEntry::ratings and RaceSummary|RaceLite::lws\
-    \ are now frozen at the jump and guaranteed to be built on pre-race data only.\n\
-    * EXP calculation was moved from being based on RaceEntry:odds::bestNow to the\
-    \ latest corporate bookmaker average fluc up to, and including the scheduled race\
-    \ jump time.\n* A timestamp was added to the RaceEntry:odds to prove/signal when\
-    \ the latest bestNow odds data came in.\n* A flucs array was added to the RaceEntry:odds,\
+    \ these bodies.\n\n---\n\n## Release Notes\n\n### 1.1.0 (08/10/26)\n* Added point-in-time\
+    \ freeze metadata to BenchmarkedRun: `frozen`, `freezeDate` and `reviewTimestamp`\
+    \ (all `FROZEN_ON_REVIEW`), so modellers can see whether a benchmark is frozen\
+    \ and when. Benchmarks that existed before 8 October 2026 were retrospectively\
+    \ frozen with a `freezeDate` of 8 October 2026; from that date `reviewTimestamp`\
+    \ represents the time the benchmark moved into `reviewStatus = COMPLETE`.\n* Added\
+    \ par provenance fields to BenchmarkedRun: `parSamples`, `parCreationDate`, `scaledFromDistance`\
+    \ and `parHash` (all `VERSIONED_ON_REVIEW`), describing the par times that powered\
+    \ the benchmark. `parHash` can be used to verify that a par has not changed when\
+    \ re-pulling data.\n* All new fields are optional and may be absent on benchmarks\
+    \ with no recorded value.\n* Extended the Point-in-Time Data Integrity section\
+    \ with the new fields.\n\n### 1.0.9 (02/10/26)\n* FK-795 Fixed point-in-time data\
+    \ issue with Get Meeting Summary and Get Race Form APIs, where it was using today's\
+    \ date instead of the meeting/race date to limit past form.\n* FK-800 Fixed a\
+    \ number of point-in-time data integrity issues with LWS, EXP and even weight\
+    \ carried + weight adjusted ratings, where post-meeting intel was leaking into\
+    \ the pre-race data.\n* RaceEntry::ratings and RaceSummary|RaceLite::lws are now\
+    \ frozen at the jump and guaranteed to be built on pre-race data only.\n* EXP\
+    \ calculation was moved from being based on RaceEntry:odds::bestNow to the latest\
+    \ corporate bookmaker average fluc up to, and including the scheduled race jump\
+    \ time.\n* A timestamp was added to the RaceEntry:odds to prove/signal when the\
+    \ latest bestNow odds data came in.\n* A flucs array was added to the RaceEntry:odds,\
     \ which provides the full list of corporate bookmaker average flucs per runner,\
     \ throughout betting, truncated at the scheduled race time.\n* Added country,\
     \ warningScore and reviewStatus to MeetingSummary, and country, reviewStatus to\
@@ -236,33 +313,36 @@ info:
     \ values for those past runs.\n* Added an API for users to request a historical\
     \ data file. This can also be performed via FK Web.\n* Removed any ratings or\
     \ benchmarks for Non-TAB or jumps races.\n* Removed deprecated field RaceEntry::metadata::peakRatings.\
-    \ Use RaceEntry::ratings::peak and RaceEntry::ratings::peak12m.\n* Added a table\
-    \ to this API documentation on point-in-time integrity, helping consumers understand\
-    \ which fields are safe for modelling, and which are subject to change as more\
-    \ samples arrive.\n\n### 1.0.8 (Initial GA Release on 11/9/26)\n* Added API key\
-    \ and usage APIs for self-service and near-real-time balance query, key management\
-    \ and credit usage history.\n* Switched on live credit deduction. Added credit\
-    \ usage viewer/CSV download and API key management via Form King Web.\n* The [Ts\
-    \ and Cs](https://www.formking.com.au/api-terms) have been relaxed based on feedback\
-    \ and a review of the terms in v1.0.6. Personal Models are now separately defined,\
-    \ data deletion and retention rules have been relaxed\n* Added a statuses query\
-    \ parameter to Get Upcoming Meetings, to allow people to drop abandoned or nominations/weights\
-    \ meetings.\n* Uploaded API spec and documentation to our [GitHub](https://github.com/dpfundt/form-king-api-tools)\
-    \ page.\n* Added [API FAQ](https://www.formking.com.au/api-faq) page on Form King\
-    \ Web and marketing via homepage.\n* Partial credits are now rounded up at the\
-    \ response level (e.g numBenchmarks=8, the 1.5 credits is charged as 2 credits\
-    \ instead of 1).\n* Monthly bundled credits reset each period (2x month cap for\
-    \ longer subs); unpaid invoices zero the full bundled balance after 7 days.\n\
-    * Implemented top-up credit bundle purchase flow, via Form King Web.\n* Released\
-    \ historical data file pricing.\n\n\n### 1.0.7-beta (7/8/26)\n* Fixed a high priority\
-    \ point-in-time data issue (FK-758) whereby `Get Meeting Summary` and `Get Race\
-    \ Form` could return `PastEvent` records for today's race, or for future races.\n\
-    * Minor changes to API documentation containing more clarity around credit costs\
-    \ (round down/floor if partial credits would otherwise be charged).\n* Added the\
-    \ `includeScratchings` query parameter to the Get Race Form API, defaulting to\
-    \ false. By dropping scratched entries, those horses' profiles will not be fetched\
-    \ and benchmarks will not be included or charged. If passed as true, they will\
-    \ be included and charged.\n\n### 1.0.6-beta (6/8/26)\n* Updated our [API Terms](https://static.formking.com.au/b2c-api-terms-v-1.0.6.html)\
+    \ Use RaceEntry::ratings::peak and RaceEntry::ratings::peak12m.\n* Added a Point-in-Time\
+    \ Data Integrity section and table to this API documentation, plus a per-field\
+    \ `x-pointInTimeStability` tag (`FROZEN_PRE_RACE`, `FROZEN_POST_RESULT`, `RECALCULATED`,\
+    \ `FROZEN_ON_REVIEW`, `VERSIONED_ON_REVIEW`) throughout the spec, helping consumers\
+    \ understand which fields are safe for modelling, and which are subject to change\
+    \ as more samples arrive.\n\n### 1.0.8 (Initial GA Release on 11/9/26)\n* Added\
+    \ API key and usage APIs for self-service and near-real-time balance query, key\
+    \ management and credit usage history.\n* Switched on live credit deduction. Added\
+    \ credit usage viewer/CSV download and API key management via Form King Web.\n\
+    * The [Ts and Cs](https://www.formking.com.au/api-terms) have been relaxed based\
+    \ on feedback and a review of the terms in v1.0.6. Personal Models are now separately\
+    \ defined, data deletion and retention rules have been relaxed\n* Added a statuses\
+    \ query parameter to Get Upcoming Meetings, to allow people to drop abandoned\
+    \ or nominations/weights meetings.\n* Uploaded API spec and documentation to our\
+    \ [GitHub](https://github.com/dpfundt/form-king-api-tools) page.\n* Added [API\
+    \ FAQ](https://www.formking.com.au/api-faq) page on Form King Web and marketing\
+    \ via homepage.\n* Partial credits are now rounded up at the response level (e.g\
+    \ numBenchmarks=8, the 1.5 credits is charged as 2 credits instead of 1).\n* Monthly\
+    \ bundled credits reset each period (2x month cap for longer subs); unpaid invoices\
+    \ zero the full bundled balance after 7 days.\n* Implemented top-up credit bundle\
+    \ purchase flow, via Form King Web.\n* Released historical data file pricing.\n\
+    \n\n### 1.0.7-beta (7/8/26)\n* Fixed a high priority point-in-time data issue\
+    \ (FK-758) whereby `Get Meeting Summary` and `Get Race Form` could return `PastEvent`\
+    \ records for today's race, or for future races.\n* Minor changes to API documentation\
+    \ containing more clarity around credit costs (round down/floor if partial credits\
+    \ would otherwise be charged).\n* Added the `includeScratchings` query parameter\
+    \ to the Get Race Form API, defaulting to false. By dropping scratched entries,\
+    \ those horses' profiles will not be fetched and benchmarks will not be included\
+    \ or charged. If passed as true, they will be included and charged.\n\n### 1.0.6-beta\
+    \ (6/8/26)\n* Updated our [API Terms](https://static.formking.com.au/b2c-api-terms-v-1.0.6.html)\
     \ to reflect stronger security and usage policy. Please ensure you're familiar\
     \ and able to accept these terms before using the API.\n* Implemented the first\
     \ of our rate limiting policies (300 requests per 300 seconds across both Web\
@@ -1372,14 +1452,21 @@ components:
         favourite:
           type: boolean
           description: Whether the horse was the market favourite at the time of this
-            fluctuation.
+            fluctuation. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         price:
           type: number
-          description: The fixed odds price at this point in time.
+          description: The fixed odds price at this point in time. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         time:
           type: integer
           description: Unix timestamp (milliseconds) representing the time of this
-            fluctuation.
+            fluctuation. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - favourite
       - price
@@ -1392,76 +1479,210 @@ components:
         age:
           type: integer
           description: Racing age of the horse in years, at the time of this race.
+            **Point-in-time integrity:** Locked once the race is officially resulted.
+            May rarely be amended by a stewards' disqualification or protest ruling
+            issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         atWeights:
           type: number
           description: Form King Performance Rating for this runner, represented at
-            the weight carried.
+            the weight carried. **Point-in-time integrity:** Behaves like RECALCULATED
+            until the record passes manual review (reviewStatus COMPLETE / trackSpeedVerified
+            true), after which the value will not change for any reason unless a significant
+            error is found.
+          x-pointInTimeStability: FROZEN_ON_REVIEW
         bestToteWin:
           type: number
-          description: Best TAB TOTE win price across all 3 TOTEs.
+          description: Best TAB TOTE win price across all 3 TOTEs. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         bsp:
           type: number
-          description: Betfair Starting Price.
+          description: Betfair Starting Price. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         dataStage:
           type: string
           description: Processing stage of the data. FULL_SECTIONAL_DATA is the final
-            stage of processing.
+            stage of processing. **Point-in-time integrity:** Locked once the race
+            is officially resulted. May rarely be amended by a stewards' disqualification
+            or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         expectedRating:
           type: number
           description: A market expected rating for this runner, calculated using
             the Betfair Starting Price, as well as the Form King Likely Winning Standard.
+            **Point-in-time integrity:** Behaves like RECALCULATED until the record
+            passes manual review (reviewStatus COMPLETE / trackSpeedVerified true),
+            after which the value will not change for any reason unless a significant
+            error is found.
+          x-pointInTimeStability: FROZEN_ON_REVIEW
         finishingSpeed:
           type: number
           description: The runner's final 600m in metres per second, represented as
-            a percentage of their to 600m speed in metres per second.
+            a percentage of their to 600m speed in metres per second. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         firmOrDrift:
           type: number
           description: The amount of firm or drift in fixed odds betting from open
             to close, represented in % chance of winning and normalised for bookmaker
-            percentage change and scratchings.
+            percentage change and scratchings. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
+        freezeDate:
+          type: integer
+          description: The point in time when this benchmark was frozen, as a UTC
+            timestamp in milliseconds. Benchmarks that existed before 8 October 2026
+            were retrospectively frozen and given 8 October 2026 as their freeze date,
+            as this is when the concept was introduced in API version 1.1.0. **Point-in-time
+            integrity:** Behaves like RECALCULATED until the record passes manual
+            review (reviewStatus COMPLETE / trackSpeedVerified true), after which
+            the value will not change for any reason unless a significant error is
+            found.
+          x-pointInTimeStability: FROZEN_ON_REVIEW
+        frozen:
+          type: boolean
+          description: Denotes whether this benchmark has been frozen. Once frozen,
+            the FROZEN_ON_REVIEW fields on this object will not change, and the VERSIONED_ON_REVIEW
+            fields will only change as a new version. Absent on benchmarks that pre-date
+            freeze metadata (API v1.1.0). **Point-in-time integrity:** Behaves like
+            RECALCULATED until the record passes manual review (reviewStatus COMPLETE
+            / trackSpeedVerified true), after which the value will not change for
+            any reason unless a significant error is found.
+          x-pointInTimeStability: FROZEN_ON_REVIEW
         meetingRunners:
           type: integer
-          description: Number of runners at the meeting.
+          description: Number of runners at the meeting. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
+        parCreationDate:
+          type: integer
+          description: UTC timestamp in milliseconds. The date when the par times
+            were generated to power these benchmarks. For retrospectively frozen benchmarks,
+            this timestamp will be after the race occurred. **Point-in-time integrity:**
+            Behaves like RECALCULATED until the record passes manual review, at which
+            point the value is frozen and versioned. It may still be recalculated
+            again in future, but as a new version, leaving prior versions intact.
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
+        parHash:
+          type: string
+          description: A unique digest representing the ingredients used to make the
+            par times that powered this benchmark. Used internally at Form King to
+            avoid re-creating pars where no new samples exist, but handy for modellers
+            to check that the par has not changed if this data is re-pulled. **Point-in-time
+            integrity:** Behaves like RECALCULATED until the record passes manual
+            review, at which point the value is frozen and versioned. It may still
+            be recalculated again in future, but as a new version, leaving prior versions
+            intact.
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
+        parSamples:
+          type: integer
+          description: The number of historical samples for the race at this distance
+            that are powering the benchmarks. For odd distances scaled from standard
+            distances, this value includes both sets of samples. **Point-in-time integrity:**
+            Behaves like RECALCULATED until the record passes manual review, at which
+            point the value is frozen and versioned. It may still be recalculated
+            again in future, but as a new version, leaving prior versions intact.
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
         pir10:
           type: integer
           description: Position in running at the 1000m marker. Will not be present
-            for races < 1000m.
+            for races < 1000m. **Point-in-time integrity:** Locked once the race is
+            officially resulted. May rarely be amended by a stewards' disqualification
+            or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         pir12:
           type: integer
           description: Position in running at the 1200m marker. Will not be present
-            for races < 1200m.
+            for races < 1200m. **Point-in-time integrity:** Locked once the race is
+            officially resulted. May rarely be amended by a stewards' disqualification
+            or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         pir2:
           type: integer
-          description: Position in running at the 200m marker.
+          description: Position in running at the 200m marker. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         pir4:
           type: integer
-          description: Position in running at the 400m marker.
+          description: Position in running at the 400m marker. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         pir6:
           type: integer
-          description: Position in running at the 600m marker.
+          description: Position in running at the 600m marker. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         pir8:
           type: integer
           description: Position in running at the 800m marker. Will not be present
-            for races < 800m.
+            for races < 800m. **Point-in-time integrity:** Locked once the race is
+            officially resulted. May rarely be amended by a stewards' disqualification
+            or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         raceRating:
           type: number
           description: Race rating at the weights carried. Represents winning time
-            as a rating, after adjustments.
+            as a rating, after adjustments. **Point-in-time integrity:** Locked once
+            the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         raceRunners:
           type: integer
-          description: Number of runners in this race.
+          description: Number of runners in this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         railMetres:
           type: number
-          description: Rail position from True (0) in metres.
+          description: Rail position from True (0) in metres. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 0.0
+          x-pointInTimeStability: FROZEN_POST_RESULT
         reviewStatus:
           $ref: '#/components/schemas/ReviewStatus'
           description: An enum representing the status of the data review (sectionals,
             ratings) for this meeting. This is a very important flag for deciding
             how stable the data is for the future.
+        reviewTimestamp:
+          type: integer
+          description: UTC timestamp in milliseconds. From 8 October 2026 this field
+            represents the time that this benchmark moved into a reviewStatus of COMPLETE.
+            Historical benchmarks that were already reviewed before then were given
+            8 October 2026 as their freeze date, as this is when the concept was introduced
+            in API version 1.1.0. **Point-in-time integrity:** Behaves like RECALCULATED
+            until the record passes manual review (reviewStatus COMPLETE / trackSpeedVerified
+            true), after which the value will not change for any reason unless a significant
+            error is found.
+          x-pointInTimeStability: FROZEN_ON_REVIEW
+        scaledFromDistance:
+          type: integer
+          description: Only set if the par times for this benchmark were created by
+            scaling another standard distance's par that has more samples. For example,
+            a 1206m race may be scaled from a 1200m par with more samples. **Point-in-time
+            integrity:** Behaves like RECALCULATED until the record passes manual
+            review, at which point the value is frozen and versioned. It may still
+            be recalculated again in future, but as a new version, leaving prior versions
+            intact.
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
         season:
           type: string
-          description: Racing season identifier.
+          description: Racing season identifier. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         sections:
           type: object
           additionalProperties:
@@ -1480,38 +1701,71 @@ components:
             \ \u2212 vsLeader), that will give you the field leader value against\
             \ the FK Class benchmark for that section. This method applies to vsWinner\
             \ and vsField as well, and the same can be done for All average and Track\
-            \ benchmarks."
+            \ benchmarks. **Point-in-time integrity:** Behaves like RECALCULATED until\
+            \ the record passes manual review, at which point the value is frozen\
+            \ and versioned. It may still be recalculated again in future, but as\
+            \ a new version, leaving prior versions intact."
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
         sp:
           type: number
-          description: Official Starting Price.
+          description: Official Starting Price. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         speedRating:
           type: number
           description: Form King Speed Rating for this run. 100 represents the horse
             running to the class "par.", and these values are not tempo adjusted.
+            **Point-in-time integrity:** Behaves like RECALCULATED until the record
+            passes manual review, at which point the value is frozen and versioned.
+            It may still be recalculated again in future, but as a new version, leaving
+            prior versions intact.
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
         vsAllAvg:
           type: number
           description: Overall time performance for this runner, represented in lengths
             +/- the Form King All Average benchmark. This figure is adjusted for track
-            speed, but not tempo.
+            speed, but not tempo. **Point-in-time integrity:** Behaves like RECALCULATED
+            until the record passes manual review, at which point the value is frozen
+            and versioned. It may still be recalculated again in future, but as a
+            new version, leaving prior versions intact.
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
         vsClass:
           type: number
           description: Overall time performance for this runner, represented in lengths
             +/- the Form King Class benchmark. This figure is adjusted for track speed,
-            but not tempo.
+            but not tempo. **Point-in-time integrity:** Behaves like RECALCULATED
+            until the record passes manual review, at which point the value is frozen
+            and versioned. It may still be recalculated again in future, but as a
+            new version, leaving prior versions intact.
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
         vsTrack:
           type: number
           description: Overall time performance for this runner, represented in lengths
             +/- the Form King Track benchmark. This figure is adjusted for track speed,
-            but not tempo.
+            but not tempo. **Point-in-time integrity:** Behaves like RECALCULATED
+            until the record passes manual review, at which point the value is frozen
+            and versioned. It may still be recalculated again in future, but as a
+            new version, leaving prior versions intact.
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
         warningScore:
-          type: integer
+          type: number
           description: A points score assigned to the meeting based on the amount
             of uncertainty/discrepancy in the timing and rating data. A value of 1
             or less is considered low risk and would qualify for a computer Auto Review.
+            **Point-in-time integrity:** Locked once the race is officially resulted.
+            May rarely be amended by a stewards' disqualification or protest ruling
+            issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         wfaRat:
           type: number
           description: Form King Performance Rating for this runner, adjusted to the
-            runner's Weight For Age allocation (see also wfaDiff).
+            runner's Weight For Age allocation (see also wfaDiff). **Point-in-time
+            integrity:** Behaves like RECALCULATED until the record passes manual
+            review (reviewStatus COMPLETE / trackSpeedVerified true), after which
+            the value will not change for any reason unless a significant error is
+            found.
+          x-pointInTimeStability: FROZEN_ON_REVIEW
       required:
       - age
       - atWeights
@@ -1547,41 +1801,68 @@ components:
         meetRank:
           type: integer
           description: Raw split time ranking for this section at the meeting. Available
-            for some late sections only.
+            for some late sections only. **Point-in-time integrity:** Always recalculated
+            and never frozen - treat as a point-in-time snapshot only, not safe for
+            modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         meetRatingRank:
           type: integer
           description: Distance-normalised (using lengths +/- the Form King Track
             Benchmark) ranking for this horse within this section at the meeting.
-            Available for some late sections only.
+            Available for some late sections only. **Point-in-time integrity:** Always
+            recalculated and never frozen - treat as a point-in-time snapshot only,
+            not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         raceRank:
           type: integer
           description: Raw split time ranking for this horse within this section in
-            this race. Available for some late sections only.
+            this race. Available for some late sections only. **Point-in-time integrity:**
+            Always recalculated and never frozen - treat as a point-in-time snapshot
+            only, not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         vsAllAvg:
           type: number
           description: Lengths +/- the Form King All Average Benchmark for this section.
-            Positive is above par.
+            Positive is above par. **Point-in-time integrity:** Always recalculated
+            and never frozen - treat as a point-in-time snapshot only, not safe for
+            modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         vsClass:
           type: number
           description: Lengths +/- the Form King Class Benchmark for this section.
-            Positive is above par.
+            Positive is above par. **Point-in-time integrity:** Always recalculated
+            and never frozen - treat as a point-in-time snapshot only, not safe for
+            modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         vsField:
           type: number
           description: Lengths +/- the field average for this section. Positive is
-            above par.
+            above par. **Point-in-time integrity:** Always recalculated and never
+            frozen - treat as a point-in-time snapshot only, not safe for modelling
+            against forever.
+          x-pointInTimeStability: RECALCULATED
         vsLeader:
           type: number
           description: Lengths +/- the field leader for this section. Positive is
-            above par.
+            above par. **Point-in-time integrity:** Always recalculated and never
+            frozen - treat as a point-in-time snapshot only, not safe for modelling
+            against forever.
+          x-pointInTimeStability: RECALCULATED
         vsTrack:
           type: number
           description: Lengths +/- the Form King Track Benchmark for this section.
-            Positive is above par.
+            Positive is above par. **Point-in-time integrity:** Always recalculated
+            and never frozen - treat as a point-in-time snapshot only, not safe for
+            modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         vsWinner:
           type: number
           description: Lengths +/- the race winner for this section. In a dead heat
             for 1st place, one race winner is chosen at random. Positive is above
-            par.
+            par. **Point-in-time integrity:** Always recalculated and never frozen
+            - treat as a point-in-time snapshot only, not safe for modelling against
+            forever.
+          x-pointInTimeStability: RECALCULATED
       required:
       - vsAllAvg
       - vsClass
@@ -1669,37 +1950,60 @@ components:
       properties:
         barrier:
           type: integer
-          description: Barrier drawn for this acceptance.
+          description: Barrier drawn for this acceptance. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         date:
           type: integer
           description: Scheduled race time as a Unix milliseconds timestamp (UTC).
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
           example: 1778803200000
+          x-pointInTimeStability: FROZEN_PRE_RACE
         distance:
           type: integer
-          description: Race distance in metres.
+          description: Race distance in metres. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         going:
           type: string
-          description: Track condition at the time of acceptance.
+          description: Track condition at the time of acceptance. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         meetingId:
           type: string
-          description: Form King unique meeting identifier.
+          description: Form King unique meeting identifier. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: ABNY_150526
+          x-pointInTimeStability: FROZEN_PRE_RACE
         name:
           type: string
-          description: Full name of the race.
+          description: Full name of the race. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceId:
           type: string
-          description: Unique identifier for this race.
+          description: Unique identifier for this race. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceNumber:
           type: string
-          description: Race number on the card.
+          description: Race number on the card. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         scratched:
           type: boolean
-          description: Whether the horse was scratched from this acceptance.
+          description: Whether the horse was scratched from this acceptance. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackName:
           type: string
-          description: Name of the track.
+          description: Name of the track. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
           example: Albany
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - barrier
       - date
@@ -1724,30 +2028,44 @@ components:
           description: The Form King All Average benchmark at the determined settling
             position, converted to a benchmark for today's race. RAW values are expressed
             as lengths vs benchmark, with positive being above (faster than) par.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
           example: 2.8459540165665698
+          x-pointInTimeStability: FROZEN_PRE_RACE
         gap:
           type: number
           description: The distance from the lead horse, at the distance marker we've
-            determined to be the settling position. RAW values are in lengths.
+            determined to be the settling position. RAW values are in lengths. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 9.17
+          x-pointInTimeStability: FROZEN_PRE_RACE
         overall:
           type: number
           description: A holistic score for the early speed for the horse in the context
             that this metrics entity is included. RAW values are always a speed figure
-            between 1-10.
+            between 1-10. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
           example: 5.715477008283285
+          x-pointInTimeStability: FROZEN_PRE_RACE
         pir:
           type: number
           description: A score for the Position In Running (PIR), RAW values are the
             horse's settling position at the 600m for races <= 1050m, otherwise the
-            first available section marker from the 1200m (one of 12, 10, 8).
+            first available section marker from the 1200m (one of 12, 10, 8). **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 8.0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         type:
           type: string
           description: This field will tell you the type of value for the fields this
             metrics entity. "SPEED_FIGURE" means that any raw value has been converted
             to a number between 1 and 10, for use with a speedmap bar. RAW means that
             the value is a raw number, expressed on the natural scale for each metric.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - overall
       - type
@@ -1759,30 +2077,40 @@ components:
           type: string
           description: The full expected tempo range, expressed as a textual description
             ({min} to {max}). If min and max land in the same category, the description
-            will be a single value.
+            will be a single value. **Point-in-time integrity:** Locked at the scheduled
+            race jump time and never rewritten afterwards.
           example: Average
+          x-pointInTimeStability: FROZEN_PRE_RACE
         max:
           type: string
           description: The maximum of the expected tempo range, expressed in lengths
             +/- the Form King benchmark for this race, per 100m to the settling position
-            marker.
+            marker. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
           example: '-0.03'
+          x-pointInTimeStability: FROZEN_PRE_RACE
         maxCategory:
           type: string
           description: The maximum of the expected tempo range, expressed as a textual
-            description.
+            description. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
           example: Average
+          x-pointInTimeStability: FROZEN_PRE_RACE
         min:
           type: string
           description: The minimum of the expected tempo range, expressed in lengths
             +/- the Form King benchmark for this race, per 100m to the settling position
-            marker.
+            marker. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
           example: '-0.19'
+          x-pointInTimeStability: FROZEN_PRE_RACE
         minCategory:
           type: string
           description: The minimum of the expected tempo range, expressed as a textual
-            description.
+            description. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
           example: Average
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - description
       - maxCategory
@@ -1794,10 +2122,15 @@ components:
         price:
           type: number
           description: The average corporate bookmaker price at this point in time.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         time:
           type: integer
           description: Unix timestamp (UTC milliseconds since epoch) representing
-            the time of this fluctuation.
+            the time of this fluctuation. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - price
       - time
@@ -1809,148 +2142,232 @@ components:
       properties:
         careerForm:
           type: string
-          description: Summary of horse's career performance.
+          description: Summary of horse's career performance. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 2:0-0-1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         classForm:
           type: string
-          description: Summary of performance at the current class level.
+          description: Summary of performance at the current class level. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         dead:
           type: string
-          description: Career record on dead tracks.
+          description: Career record on dead tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         distanceForm:
           type: string
-          description: Summary of performance at today's distance.
+          description: Summary of performance at today's distance. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         firm:
           type: string
-          description: Career record on firm tracks.
+          description: Career record on firm tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         firstUpForm:
           type: string
-          description: Performance history in first-up runs.
+          description: Performance history in first-up runs. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 1:0-0-1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         flatForm:
           type: string
-          description: Performance history on flat tracks.
+          description: Performance history on flat tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 2:0-0-1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         goingForm:
           $ref: '#/components/schemas/GoingForm'
           description: Summarises win/place record for each official track condition/going
             category.
         good:
           type: string
-          description: Career record on good tracks.
+          description: Career record on good tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         goodForm:
           type: string
-          description: Performance summary on good tracks.
+          description: Performance summary on good tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         heavy:
           type: string
-          description: Career record on heavy tracks.
+          description: Career record on heavy tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         heavyForm:
           type: string
-          description: Performance summary on heavy tracks.
+          description: Performance summary on heavy tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         hurdleForm:
           type: string
-          description: Performance history in hurdle races.
+          description: Performance history in hurdle races. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         insideBarriers:
           type: string
-          description: Performance history from inside barriers.
+          description: Performance history from inside barriers. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 2:0-0-1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lengthsBeatenLastThree:
           type: number
-          description: Total lengths beaten in the last three starts.
+          description: Total lengths beaten in the last three starts. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 6.02
+          x-pointInTimeStability: FROZEN_PRE_RACE
         longRaces:
           type: string
-          description: Performance history in long distance races.
+          description: Performance history in long distance races. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         middleBarriers:
           type: string
-          description: Performance history from middle barriers.
+          description: Performance history from middle barriers. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         middleRaces:
           type: string
-          description: Performance history in middle distance races.
+          description: Performance history in middle distance races. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         mileRaces:
           type: string
-          description: Performance history in mile races.
+          description: Performance history in mile races. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         nightForm:
           type: string
-          description: Performance history in night meetings.
+          description: Performance history in night meetings. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         runs:
           type: string
-          description: Total number of career starts.
+          description: Total number of career starts. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 38x
+          x-pointInTimeStability: FROZEN_PRE_RACE
         secondUpForm:
           type: string
-          description: Performance history in second-up runs.
+          description: Performance history in second-up runs. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 1:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         shortCourseRaces:
           type: string
-          description: Performance history in short course races.
+          description: Performance history in short course races. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 2:0-0-1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         similarDistance:
           type: string
-          description: Performance history at similar distances.
+          description: Performance history at similar distances. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 2:0-0-1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         slow:
           type: string
-          description: Career record on slow tracks.
+          description: Career record on slow tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         soft:
           type: string
-          description: Career record on soft tracks.
+          description: Career record on soft tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         sprintRaces:
           type: string
-          description: Performance history in sprint races.
+          description: Performance history in sprint races. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         stayingRaces:
           type: string
-          description: Performance history in staying races.
+          description: Performance history in staying races. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         steepleForm:
           type: string
-          description: Performance history in steeplechase races.
+          description: Performance history in steeplechase races. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         synthetic:
           type: string
-          description: Career record on synthetic tracks.
+          description: Career record on synthetic tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         thirdUpForm:
           type: string
-          description: Performance history in third-up runs.
+          description: Performance history in third-up runs. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         todaysGoingForm:
           type: string
           description: 'Form string for today''s specific track condition (e.g. "3:
-            1-0-1-1"). Derived from goingForm keyed on today''s going category.'
+            1-0-1-1"). Derived from goingForm keyed on today''s going category. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.'
+          x-pointInTimeStability: FROZEN_PRE_RACE
         todaysWeight:
           type: string
-          description: Performance history carrying today's weight.
+          description: Performance history carrying today's weight. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 1:0-0-1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackAndDistanceForm:
           type: string
-          description: Performance history at today's track and distance.
+          description: Performance history at today's track and distance. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackForm:
           type: string
-          description: Performance history at today's track.
+          description: Performance history at today's track. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         wet:
           type: string
-          description: Career record on wet tracks.
+          description: Career record on wet tracks. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         wideBarriers:
           type: string
-          description: Performance history from wide barriers.
+          description: Performance history from wide barriers. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         wonWithTodaysWeightOrHigher:
           type: boolean
           description: Boolean indicating if the horse has won carrying today's weight
-            or more.
+            or more. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - careerForm
       - classForm
@@ -1999,31 +2416,55 @@ components:
         averageBeatenMargin:
           type: number
           description: The average beaten margin across all starts in this window.
+            **Point-in-time integrity:** Always recalculated and never frozen - treat
+            as a point-in-time snapshot only, not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         averageFirmOrDrift:
           type: number
           description: The average firm or drift value across all starts in this window.
+            **Point-in-time integrity:** Always recalculated and never frozen - treat
+            as a point-in-time snapshot only, not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         proportionalStakingROI:
           type: number
           description: Return on investment using proportional staking across all
-            starts in this window.
+            starts in this window. **Point-in-time integrity:** Always recalculated
+            and never frozen - treat as a point-in-time snapshot only, not safe for
+            modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         races:
           type: integer
-          description: Total number of races included in this summary window.
+          description: Total number of races included in this summary window. **Point-in-time
+            integrity:** Always recalculated and never frozen - treat as a point-in-time
+            snapshot only, not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         seconds:
           type: integer
-          description: Number of second-place finishes in this window.
+          description: Number of second-place finishes in this window. **Point-in-time
+            integrity:** Always recalculated and never frozen - treat as a point-in-time
+            snapshot only, not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         thirds:
           type: integer
-          description: Number of third-place finishes in this window.
+          description: Number of third-place finishes in this window. **Point-in-time
+            integrity:** Always recalculated and never frozen - treat as a point-in-time
+            snapshot only, not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         wins:
           type: integer
-          description: Number of wins in this window.
+          description: Number of wins in this window. **Point-in-time integrity:**
+            Always recalculated and never frozen - treat as a point-in-time snapshot
+            only, not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         winsOverExpectations:
           type: number
           description: Wins above the market-implied expectation across all starts
             in this window. A value of 1 means that wins = expectedWins. A value above
             1 means that there have been more wins than expected wins, and below 1
-            is less than expected.
+            is less than expected. **Point-in-time integrity:** Always recalculated
+            and never frozen - treat as a point-in-time snapshot only, not safe for
+            modelling against forever.
+          x-pointInTimeStability: RECALCULATED
       required:
       - averageBeatenMargin
       - averageFirmOrDrift
@@ -2042,15 +2483,24 @@ components:
         change:
           type: string
           description: Whether this gear item is a change from the previous race.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
           example: ON_FIRST_TIME
+          x-pointInTimeStability: FROZEN_PRE_RACE
         gear:
           type: string
-          description: Name of the gear item (e.g. Blinkers, Tongue Tie).
+          description: Name of the gear item (e.g. Blinkers, Tongue Tie). **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: Gelded
+          x-pointInTimeStability: FROZEN_PRE_RACE
         'on':
           type: boolean
-          description: Whether the gear is being worn in this race.
+          description: Whether the gear is being worn in this race. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: true
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - change
       - gear
@@ -2083,22 +2533,34 @@ components:
       properties:
         dead:
           type: string
-          description: Career record on dead tracks.
+          description: Career record on dead tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         fast:
           type: string
-          description: Career record on fast tracks.
+          description: Career record on fast tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         good:
           type: string
-          description: Career record on good tracks.
+          description: Career record on good tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         heavy:
           type: string
-          description: Career record on heavy tracks.
+          description: Career record on heavy tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         slow:
           type: string
-          description: Career record on slow tracks.
+          description: Career record on slow tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         synthetic:
           type: string
-          description: Career record on synthetic tracks.
+          description: Career record on synthetic tracks. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - dead
       - fast
@@ -2370,54 +2832,78 @@ components:
       properties:
         age:
           type: integer
-          description: Current racing age of the horse in years.
+          description: Current racing age of the horse in years. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 2
+          x-pointInTimeStability: FROZEN_PRE_RACE
         calculatedAge:
           type: number
           description: Precise age of the horse in years as calculated from its foal
-            date.
+            date. **Point-in-time integrity:** Locked at the scheduled race jump time
+            and never rewritten afterwards.
           example: 2.6684931506849314
+          x-pointInTimeStability: FROZEN_PRE_RACE
         country:
           type: string
-          description: Country of origin.
+          description: Country of origin. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
           example: AUS
+          x-pointInTimeStability: FROZEN_PRE_RACE
         dam:
           type: string
-          description: Name of the maternal parent.
+          description: Name of the maternal parent. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Truancy
+          x-pointInTimeStability: FROZEN_PRE_RACE
         foalDate:
           type: integer
-          description: Date the horse was foaled.
+          description: Date the horse was foaled. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: 1694649600000
+          x-pointInTimeStability: FROZEN_PRE_RACE
         name:
           type: string
-          description: Registered name of the horse.
+          description: Registered name of the horse. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: Quagmire
+          x-pointInTimeStability: FROZEN_PRE_RACE
         ownership:
           type: string
-          description: Current owners of the horse.
+          description: Current owners of the horse. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Ms R C Parker, R J Pawsey, Miss C A Toose & Mrs L Manuel
+          x-pointInTimeStability: FROZEN_PRE_RACE
         previousName:
           type: string
           description: Optional - if the horse has raced under another name previously,
-            this field will contain the most recent prior name.
+            this field will contain the most recent prior name. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         sire:
           type: string
-          description: Name of the paternal parent.
+          description: Name of the paternal parent. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Long Leaf
+          x-pointInTimeStability: FROZEN_PRE_RACE
         sireOfDam:
           type: string
-          description: The sire of the dam (damsire).
+          description: The sire of the dam (damsire). **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: I Am Invincible
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trainingLocation:
           type: string
-          description: Where the horse is currently trained.
+          description: Where the horse is currently trained. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: Flemington
+          x-pointInTimeStability: FROZEN_PRE_RACE
         type:
           type: string
           description: 'The type of horse. Possible values are: F (Filly), M (Mare),
-            H (Entire), G (Gelding), C (Colt).'
+            H (Entire), G (Gelding), C (Colt). **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.'
           example: G
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - dam
       - name
@@ -2431,18 +2917,23 @@ components:
           $ref: '#/components/schemas/Horse'
         id:
           type: string
-          description: Unique identifier for the horse.
+          description: Unique identifier for the horse. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         mostRecentTrainer:
           type: string
-          description: The most recent trainer of the horse.
+          description: The most recent trainer of the horse. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         pastEvents:
           type: array
           items:
             $ref: '#/components/schemas/PastEvent'
           description: Full career list of past race, trial, spell and scratched entries
-            for the horse.
-      required:
-      - id
+            for the horse. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
+      required: []
       description: A complete profile for a horse, including full past race, trial,
         spell and scratching items, benchmarked sectional data and performance ratings.
         Data depth will depend on subscription level.
@@ -2453,16 +2944,22 @@ components:
       properties:
         dam:
           type: string
-          description: Dam (mother) of the horse.
+          description: Dam (mother) of the horse. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Truancy
+          x-pointInTimeStability: FROZEN_PRE_RACE
         name:
           type: string
-          description: Name of the horse.
+          description: Name of the horse. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
           example: Quagmire
+          x-pointInTimeStability: FROZEN_PRE_RACE
         sire:
           type: string
-          description: Sire (father) of the horse.
+          description: Sire (father) of the horse. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Long Leaf
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - dam
       - name
@@ -2475,59 +2972,102 @@ components:
       properties:
         barrier:
           type: integer
-          description: Actual barrier jumped from.
+          description: Actual barrier jumped from. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 7
+          x-pointInTimeStability: FROZEN_POST_RESULT
         bestToteWin:
           type: number
-          description: Best available TAB win price.
+          description: Best available TAB win price. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 3.2
+          x-pointInTimeStability: FROZEN_POST_RESULT
         betfairPlaceDiv:
           type: number
-          description: Betfair place dividend.
+          description: Betfair place dividend. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 1.61
+          x-pointInTimeStability: FROZEN_POST_RESULT
         betfairStartingPrice:
           type: number
-          description: Betfair SP (starting price).
+          description: Betfair SP (starting price). **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 3.77
+          x-pointInTimeStability: FROZEN_POST_RESULT
         finishPosition:
           type: integer
-          description: The official finishing position.
+          description: The official finishing position. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 2
+          x-pointInTimeStability: FROZEN_POST_RESULT
         jockey:
           type: string
-          description: Jockey name in the race result.
+          description: Jockey name in the race result. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: Jamie Mott
+          x-pointInTimeStability: FROZEN_POST_RESULT
         margin:
           type: number
-          description: Distance behind the winner.
+          description: Distance behind the winner. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 0.06
+          x-pointInTimeStability: FROZEN_POST_RESULT
         number:
           type: integer
-          description: Saddlecloth number.
+          description: Saddlecloth number. **Point-in-time integrity:** Locked once
+            the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 1
+          x-pointInTimeStability: FROZEN_POST_RESULT
         officialFlucs:
           type: array
           items:
             type: number
-          description: Official price fluctuations during betting.
+          description: Official price fluctuations during betting. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         startingPrice:
           type: number
-          description: The official starting price.
+          description: The official starting price. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 3.2
+          x-pointInTimeStability: FROZEN_POST_RESULT
         topFluc:
           type: number
-          description: The highest price reached during betting.
+          description: The highest price reached during betting. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 3.2
+          x-pointInTimeStability: FROZEN_POST_RESULT
         totePlace:
           type: number
-          description: Final TAB place dividend.
+          description: Final TAB place dividend. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         toteWin:
           type: number
-          description: Final TAB win dividend.
+          description: Final TAB win dividend. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         weight:
           type: number
-          description: Weight carried in the race.
+          description: Weight carried in the race. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 58.0
+          x-pointInTimeStability: FROZEN_POST_RESULT
       required:
       - barrier
       - bestToteWin
@@ -2553,11 +3093,15 @@ components:
         id:
           type: string
           description: The third-party identifier (e.g. a Betfair market or selection
-            id).
+            id). **Point-in-time integrity:** Locked at the scheduled race jump time
+            and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         type:
           type: string
           description: The type of the third-party identifier, as defined by the third-party
-            provider (e.g. "WIN" or "PLACE" for Betfair).
+            provider (e.g. "WIN" or "PLACE" for Betfair). **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - id
       - type
@@ -2569,37 +3113,64 @@ components:
       properties:
         horseComboForm:
           type: string
-          description: Performance history of this jockey/horse combination.
+          description: Performance history of this jockey/horse combination. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         horseComboPlacePercentage:
           type: number
-          description: Place percentage for this jockey/horse combination.
+          description: Place percentage for this jockey/horse combination. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         horseComboWinPercentage:
           type: number
-          description: Win percentage for this jockey/horse combination.
+          description: Win percentage for this jockey/horse combination. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lastTwelveMonthForm:
           type: string
-          description: Jockey's overall performance over the last 12 months.
+          description: Jockey's overall performance over the last 12 months. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 804:126-101-83
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lastTwelveMonthPlacePercentage:
           type: number
-          description: Jockey's place percentage over the last 12 months.
+          description: Jockey's place percentage over the last 12 months. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 38.55721393034826
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lastTwelveMonthRides:
           type: integer
           description: Total number of rides for the jockey in the last 12 months.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
           example: 804
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lastTwelveMonthWinPercentage:
           type: number
-          description: Jockey's win percentage over the last 12 months.
+          description: Jockey's win percentage over the last 12 months. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 15.671641791044777
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackComboForm:
           type: string
-          description: Performance history of this jockey at this track.
+          description: Performance history of this jockey at this track. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackComboWinPercentage:
           type: number
-          description: Win percentage for this jockey at this track.
+          description: Win percentage for this jockey at this track. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - horseComboForm
       - horseComboPlacePercentage
@@ -2696,7 +3267,6 @@ components:
             or less is considered low risk and would qualify for a computer Auto Review.
       required:
       - country
-      - id
       - reviewStatus
       - updated
       - warningScore
@@ -2779,7 +3349,6 @@ components:
           example: Albany
       required:
       - country
-      - id
       - reviewStatus
       description: A lightweight summary of a racing meeting, typically used as an
         index, for example - upcoming meetings.
@@ -2791,18 +3360,31 @@ components:
         deltaLengths:
           type: number
           description: The winner's margin, expressed in lengths, over the field at
-            the sectional point.
+            the sectional point. **Point-in-time integrity:** Locked once the race
+            is officially resulted. May rarely be amended by a stewards' disqualification
+            or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         sectionalDistance:
           type: integer
           description: Distance, in metres, over which the official sectional time
-            was recorded.
+            was recorded. **Point-in-time integrity:** Locked once the race is officially
+            resulted. May rarely be amended by a stewards' disqualification or protest
+            ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         sectionalTimeInMillis:
           type: integer
           description: Official sectional time recorded for sectionalDistance, in
-            milliseconds.
+            milliseconds. **Point-in-time integrity:** Locked once the race is officially
+            resulted. May rarely be amended by a stewards' disqualification or protest
+            ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         timeInMillis:
           type: integer
-          description: Official race finish time, in milliseconds.
+          description: Official race finish time, in milliseconds. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
       required:
       - deltaLengths
       - sectionalDistance
@@ -2820,11 +3402,17 @@ components:
           description: The weightForAgeRating value, adjusted to the weight being
             carried in today's race. See also RaceEntry::weightCarried. If consumed
             outside a Race context, this value will not be present, as there would
-            be no weight to make an adjustment to.
+            be no weight to make an adjustment to. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         barrier:
           type: integer
-          description: Barrier/starting gate jumped from.
+          description: Barrier/starting gate jumped from. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 4
+          x-pointInTimeStability: FROZEN_POST_RESULT
         benchmark:
           $ref: '#/components/schemas/BenchmarkedRun'
           description: A detailed record focused the performance aspect of this past
@@ -2840,171 +3428,304 @@ components:
           type: number
           description: Official Handicap Rating (OHR) assigned to the horse prior
             to this race. May be omitted or 0 if no OHR had been assigned (e.g. maidens).
+            **Point-in-time integrity:** Locked once the race is officially resulted.
+            May rarely be amended by a stewards' disqualification or protest ruling
+            issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         bsp:
           type: number
-          description: Betfair Starting Price.
+          description: Betfair Starting Price. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 1.95581612
+          x-pointInTimeStability: FROZEN_POST_RESULT
         country:
           type: string
-          description: Country where the race was held.
+          description: Country where the race was held. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: Australia
+          x-pointInTimeStability: FROZEN_POST_RESULT
         date:
           type: integer
-          description: Race date as a Unix timestamp (milliseconds since Epoch).
+          description: Race date as a Unix timestamp (milliseconds since Epoch). **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
           example: 1782223200000
+          x-pointInTimeStability: FROZEN_POST_RESULT
         daysSincePreviousRace:
           type: integer
-          description: Days elapsed since the horse's prior race.
+          description: Days elapsed since the horse's prior race. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         distance:
           type: integer
-          description: Race distance in metres.
+          description: Race distance in metres. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 1100
+          x-pointInTimeStability: FROZEN_POST_RESULT
         exp:
           type: number
           description: The pre-race EXP (market expected rating) for this runner,
             in this past race. Uses the last available corporate bookmaker average
-            price, no later than the scheduled race start time.
+            price, no later than the scheduled race start time. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         fieldStrength:
           type: number
-          description: Strength of the field in this past race.
+          description: Strength of the field in this past race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 42.35230699022721
+          x-pointInTimeStability: FROZEN_POST_RESULT
         finishPosition:
           type: integer
-          description: Official finishing position in this race.
+          description: Official finishing position in this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 1
+          x-pointInTimeStability: FROZEN_POST_RESULT
         flucs:
           type: array
           items:
             $ref: '#/components/schemas/BasicFluc'
-          description: Price fluctuations during betting for this race.
+          description: Price fluctuations during betting for this race. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         gear:
           type: array
           items:
             $ref: '#/components/schemas/Gear'
-          description: Gear worn by the horse in this race.
+          description: Gear worn by the horse in this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         going:
           type: string
-          description: Track condition for this race.
+          description: Track condition for this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: Dead 5
+          x-pointInTimeStability: FROZEN_POST_RESULT
         horse:
           type: string
-          description: Name of the horse in this past event.
+          description: Name of the horse in this past event. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: Omolong
+          x-pointInTimeStability: FROZEN_POST_RESULT
         jockey:
           type: string
-          description: Jockey who rode in this past event.
+          description: Jockey who rode in this past event. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: Tommy Berry
+          x-pointInTimeStability: FROZEN_POST_RESULT
         lws:
           type: number
           description: The Likely Winning Standard value shown in the Form Guide,
             representing the computer's pre-race guess of the strength of this past
             race before it was run, at the weights carried on the Form King scale.
+            **Point-in-time integrity:** Locked once the race is officially resulted.
+            May rarely be amended by a stewards' disqualification or protest ruling
+            issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         margin:
           type: number
-          description: Distance beaten (or winning margin).
+          description: Distance beaten (or winning margin). **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 1.24
+          x-pointInTimeStability: FROZEN_POST_RESULT
         meetingId:
           type: string
-          description: Form King unique meeting identifier.
+          description: Form King unique meeting identifier. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: warwick-farm-20260624
+          x-pointInTimeStability: FROZEN_POST_RESULT
         nightMeeting:
           type: boolean
-          description: Whether this was a night meeting.
+          description: Whether this was a night meeting. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         numRunners:
           type: integer
-          description: Number of runners in this race.
+          description: Number of runners in this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 7
+          x-pointInTimeStability: FROZEN_POST_RESULT
         placings:
           type: array
           items:
             $ref: '#/components/schemas/Placing'
           description: The top 4 placings for this past event. Omitted for spell PastEvent
-            records.
+            records. **Point-in-time integrity:** Locked once the race is officially
+            resulted. May rarely be amended by a stewards' disqualification or protest
+            ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         pos1200m:
           type: integer
           description: Position in running at the 1200m mark. Will not be present
-            for race distances under 1200m.
+            for race distances under 1200m. **Point-in-time integrity:** Locked once
+            the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         pos400m:
           type: integer
-          description: Position in running at the 400m mark.
+          description: Position in running at the 400m mark. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 5
+          x-pointInTimeStability: FROZEN_POST_RESULT
         pos800m:
           type: integer
           description: Position in running at the 800m mark. Will not be present for
-            race distances under 800m.
+            race distances under 800m. **Point-in-time integrity:** Locked once the
+            race is officially resulted. May rarely be amended by a stewards' disqualification
+            or protest ruling issued after the meeting.
           example: 6
+          x-pointInTimeStability: FROZEN_POST_RESULT
         posSettling:
           type: integer
           description: Position in running at the settling point. This is typically
             between 200-400m after the start, or the 800m if no PIR was taken earlier.
+            **Point-in-time integrity:** Locked once the race is officially resulted.
+            May rarely be amended by a stewards' disqualification or protest ruling
+            issued after the meeting.
           example: 6
+          x-pointInTimeStability: FROZEN_POST_RESULT
         race:
           type: boolean
           description: A boolean field denoting whether this PastEvent was a race
-            (as opposed to a trial, a spell or a scratching).
+            (as opposed to a trial, a spell or a scratching). **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: true
+          x-pointInTimeStability: FROZEN_POST_RESULT
         raceId:
           type: string
-          description: Unique identifier for this race.
+          description: Unique identifier for this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: W FM_240626_2
+          x-pointInTimeStability: FROZEN_POST_RESULT
         raceInCareer:
           type: integer
-          description: Career start number for this race.
+          description: Career start number for this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 1
+          x-pointInTimeStability: FROZEN_POST_RESULT
         raceInPrep:
           type: integer
-          description: Preparation start number for this race.
+          description: Preparation start number for this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 1
+          x-pointInTimeStability: FROZEN_POST_RESULT
         raceName:
           type: string
-          description: Full name of the race.
+          description: Full name of the race. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 2yo C&G Hcp
+          x-pointInTimeStability: FROZEN_POST_RESULT
         raceNumber:
           type: integer
-          description: Race number on the card.
+          description: Race number on the card. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 2
+          x-pointInTimeStability: FROZEN_POST_RESULT
         raceType:
           type: string
-          description: Type of race (e.g., Flat, Hurdle).
+          description: Type of race (e.g., Flat, Hurdle). **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: Flat
+          x-pointInTimeStability: FROZEN_POST_RESULT
         ratingScale:
           type: string
-          description: The rating scale used (e.g., FORM_KING).
+          description: The rating scale used (e.g., FORM_KING). **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: FORM_KING
+          x-pointInTimeStability: FROZEN_POST_RESULT
         runnerNumber:
           type: integer
-          description: Saddlecloth number in this race.
+          description: Saddlecloth number in this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 7
+          x-pointInTimeStability: FROZEN_POST_RESULT
         scratched:
           type: boolean
-          description: Whether the horse was scratched from this race.
+          description: Whether the horse was scratched from this race. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         sectionalDistance:
           type: integer
-          description: Distance over which the sectional time was recorded.
+          description: Distance over which the sectional time was recorded. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
           example: 600
+          x-pointInTimeStability: FROZEN_POST_RESULT
         sectionalTimeInMillis:
           type: integer
-          description: Sectional time recorded in milliseconds.
+          description: Sectional time recorded in milliseconds. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 34030
+          x-pointInTimeStability: FROZEN_POST_RESULT
         spell:
           type: boolean
-          description: Whether the horse had a spell before this race.
+          description: Whether the horse had a spell before this race. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         spellDays:
           type: integer
-          description: Number of days the horse was spelled before this race.
+          description: Number of days the horse was spelled before this race. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         startingPrice:
           type: number
-          description: Official starting price for this race.
+          description: Official starting price for this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 1.7
+          x-pointInTimeStability: FROZEN_POST_RESULT
         state:
           type: string
-          description: Australian state where the race was held.
+          description: Australian state where the race was held. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: NSW
+          x-pointInTimeStability: FROZEN_POST_RESULT
         stewardsComment:
           type: string
           description: A Stewards' comment, containing official notes relating to
             this runner in the race. Not present if no Stewards notes were made against
-            the runner.
+            the runner. **Point-in-time integrity:** Locked once the race is officially
+            resulted. May rarely be amended by a stewards' disqualification or protest
+            ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         subsequentForm:
           type: object
           additionalProperties:
@@ -3018,61 +3739,107 @@ components:
           x-additionalPropertiesName: SubsequentFormKey
           description: A dictionary of subsequent form summaries for horses that ran
             in this race. Keys are one of ALL, NEXT_10, or NEXT_20, representing the
-            window of subsequent starts included in the summary.
+            window of subsequent starts included in the summary. **Point-in-time integrity:**
+            Always recalculated and never frozen - treat as a point-in-time snapshot
+            only, not safe for modelling against forever.
+          x-pointInTimeStability: RECALCULATED
         tabMeeting:
           type: boolean
-          description: Whether this was a TAB meeting.
+          description: Whether this was a TAB meeting. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: true
+          x-pointInTimeStability: FROZEN_POST_RESULT
         timeInMillis:
           type: integer
-          description: Total race time in milliseconds.
+          description: Total race time in milliseconds. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 64310
+          x-pointInTimeStability: FROZEN_POST_RESULT
         totalPrizemoney:
           type: number
-          description: Total prize money for this race.
+          description: Total prize money for this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 58500.0
+          x-pointInTimeStability: FROZEN_POST_RESULT
         track:
           type: string
-          description: Name of the track.
+          description: Name of the track. **Point-in-time integrity:** Locked once
+            the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: Warwick Farm
+          x-pointInTimeStability: FROZEN_POST_RESULT
         trackCode:
           type: string
-          description: Four-character track code.
+          description: Four-character track code. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: W FM
+          x-pointInTimeStability: FROZEN_POST_RESULT
         trackSpeed:
           type: number
-          description: Track speed rating for this race.
+          description: Track speed rating for this race. **Point-in-time integrity:**
+            Behaves like RECALCULATED until the record passes manual review, at which
+            point the value is frozen and versioned. It may still be recalculated
+            again in future, but as a new version, leaving prior versions intact.
           example: 3.7
+          x-pointInTimeStability: VERSIONED_ON_REVIEW
         trackSpeedVerified:
           type: boolean
-          description: Whether the track speed has been verified.
+          description: Whether the track speed has been verified. **Point-in-time
+            integrity:** Behaves like RECALCULATED until the record passes manual
+            review (reviewStatus COMPLETE / trackSpeedVerified true), after which
+            the value will not change for any reason unless a significant error is
+            found.
           example: true
+          x-pointInTimeStability: FROZEN_ON_REVIEW
         trainer:
           type: string
-          description: Trainer of the horse in this race.
+          description: Trainer of the horse in this race. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: Chris Waller
+          x-pointInTimeStability: FROZEN_POST_RESULT
         trial:
           type: boolean
-          description: Whether this was a barrier trial rather than a race.
+          description: Whether this was a barrier trial rather than a race. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         videoComment:
           type: string
           description: A video form comment containing key notes for this runner in
-            the race - where data is available only.
+            the race - where data is available only. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         weight:
           type: number
-          description: Weight carried in this race.
+          description: Weight carried in this race. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 57.0
+          x-pointInTimeStability: FROZEN_POST_RESULT
         weightForAgeRating:
           type: number
           description: The Form King performance rating achieved in this race, adjusted
-            to the horse's WFA allocation on that date.
+            to the horse's WFA allocation on that date. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 91.73080057898598
+          x-pointInTimeStability: FROZEN_POST_RESULT
         wfaDiff:
           type: number
           description: Difference in kilograms from the Form King Weight For Age allocation
             at the time of this race. We use a modified version of the Standard WFA
-            scale.
+            scale. **Point-in-time integrity:** Locked once the race is officially
+            resulted. May rarely be amended by a stewards' disqualification or protest
+            ruling issued after the meeting.
           example: 10.629740151899995
+          x-pointInTimeStability: FROZEN_POST_RESULT
       required:
       - barrier
       - date
@@ -3086,38 +3853,6 @@ components:
       - trackSpeedVerified
       description: A single past race, trial, scratching or spell entry for a horse.
         May contain benchmarking data, if available and authorised.
-    PeakRating:
-      type: object
-      title: PeakRating
-      properties:
-        atWeights:
-          type: number
-          description: Rating achieved at the weight carried.
-          example: 75.45424739787157
-        atWfa:
-          type: number
-          description: Weight-for-age adjusted rating.
-          example: 82.38293019028498
-        raceId:
-          type: string
-          description: Form King race ID of the race where the rating was achieved.
-          example: FLEM_081125_1
-        ratingScale:
-          type: string
-          description: The rating scale used (e.g. Form King).
-          example: FORM_KING
-        type:
-          type: string
-          description: Type of rating.
-          example: BEST_WFA_LAST_12M
-      required:
-      - atWeights
-      - atWfa
-      - raceId
-      - ratingScale
-      - type
-      description: Contains information about a peak rating achieved by the horse.
-        A peak rating might be for their career, or last 12 months, or this preparation.
     PendingCreditRecord:
       type: object
       title: PendingCreditRecord
@@ -3168,34 +3903,59 @@ components:
       properties:
         barrier:
           type: integer
-          description: Actual barrier jumped from.
+          description: Actual barrier jumped from. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 5
+          x-pointInTimeStability: FROZEN_POST_RESULT
         finishPosition:
           type: integer
-          description: Official finishing position.
+          description: Official finishing position. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: 1
+          x-pointInTimeStability: FROZEN_POST_RESULT
         finishPositionDisplay:
           type: string
-          description: Display string for finishing position.
+          description: Display string for finishing position. **Point-in-time integrity:**
+            Locked once the race is officially resulted. May rarely be amended by
+            a stewards' disqualification or protest ruling issued after the meeting.
           example: 1st
+          x-pointInTimeStability: FROZEN_POST_RESULT
         horse:
           type: string
-          description: Name of the horse.
+          description: Name of the horse. **Point-in-time integrity:** Locked once
+            the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: Obambulate
+          x-pointInTimeStability: FROZEN_POST_RESULT
         jockey:
           type: string
-          description: Name of the jockey.
+          description: Name of the jockey. **Point-in-time integrity:** Locked once
+            the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
           example: Craig Williams
+          x-pointInTimeStability: FROZEN_POST_RESULT
         margin:
           type: number
-          description: Margin from the winner.
+          description: Margin from the winner. **Point-in-time integrity:** Locked
+            once the race is officially resulted. May rarely be amended by a stewards'
+            disqualification or protest ruling issued after the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         thisHorse:
           type: boolean
-          description: Boolean indicating if this placing is the subject horse.
+          description: Boolean indicating if this placing is the subject horse. **Point-in-time
+            integrity:** Locked once the race is officially resulted. May rarely be
+            amended by a stewards' disqualification or protest ruling issued after
+            the meeting.
+          x-pointInTimeStability: FROZEN_POST_RESULT
         weight:
           type: number
-          description: Weight carried.
+          description: Weight carried. **Point-in-time integrity:** Locked once the
+            race is officially resulted. May rarely be amended by a stewards' disqualification
+            or protest ruling issued after the meeting.
           example: 58.0
+          x-pointInTimeStability: FROZEN_POST_RESULT
       required:
       - barrier
       - finishPosition
@@ -3207,6 +3967,27 @@ components:
       - weight
       description: Used in PastEvent records to represent the top few finishers in
         a race. Contains only basic runner and result information.
+    PointInTimeStability:
+      type: string
+      enum:
+      - FROZEN_PRE_RACE
+      - FROZEN_POST_RESULT
+      - RECALCULATED
+      - FROZEN_ON_REVIEW
+      - VERSIONED_ON_REVIEW
+      title: PointInTimeStability
+      description: A classification of how stable a field's value is over time. FROZEN_PRE_RACE
+        fields are locked at the scheduled race jump time and never rewritten; FROZEN_POST_RESULT
+        fields are locked once the race is officially resulted, but may rarely be
+        amended by a stewards' disqualification or protest ruling issued afterwards;
+        RECALCULATED fields are always recalculated and never frozen, so are not safe
+        for modelling against forever; FROZEN_ON_REVIEW fields behave like RECALCULATED
+        until the record passes manual review, after which they will not change for
+        any reason unless a significant error is found; VERSIONED_ON_REVIEW fields
+        behave like RECALCULATED until the record passes manual review, at which point
+        the value is frozen and versioned, but may still be recalculated again in
+        future as a new version. See also the `x-pointInTimeStability` vendor extension
+        on individual fields.
     RaceEntry:
       type: object
       title: RaceEntry
@@ -3216,54 +3997,87 @@ components:
           items:
             $ref: '#/components/schemas/DualAcceptance'
           description: Details of multiple race acceptances. Handy for dual acceptors.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         apprenticeClaim:
           type: number
           description: Weight allowance for the apprentice jockey. In non-claiming
             races, this can be 0 even if the jockey would otherwise have a claim.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         apprenticeJockey:
           type: boolean
-          description: Boolean indicating if an apprentice is riding this horse.
+          description: Boolean indicating if an apprentice is riding this horse. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         averagePrizeMoney:
           type: number
-          description: Average prize money earned per start for this horse.
+          description: Average prize money earned per start for this horse. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 20500.0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         barrier:
           type: integer
           description: Balloted starting gate position. Note - scratchings may affect
-            the actual barrier jumped from.
+            the actual barrier jumped from. **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
           example: 1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         benchmarkRating:
           type: number
           description: Official Handicap Rating (OHR) assigned to the horse prior
-            to this race.
+            to this race. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         breedingId:
           type: string
-          description: Form King unique identifier for this horse.
+          description: Form King unique identifier for this horse. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 2022_exceed-and-excel_wayborn
+          x-pointInTimeStability: FROZEN_PRE_RACE
         daysSinceLastRace:
           type: integer
           description: Days elapsed since the horse's previous race, taken from the
-            race date.
+            race date. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
           example: 143
+          x-pointInTimeStability: FROZEN_PRE_RACE
         daysSinceLastWin:
           type: integer
           description: Days elapsed since the horse's last victory, taken from the
-            race date.
+            race date. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         distanceChange:
           type: string
-          description: Change in distance from the previous race.
+          description: Change in distance from the previous race. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         dualAcceptor:
           type: boolean
           description: Boolean indicating if the horse is accepted in multiple upcoming/recent
             races. If this is true, the details will be in the "acceptances" data
-            field.
+            field. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         emergency:
           type: boolean
-          description: Boolean indicating if the horse is an emergency runner.
+          description: Boolean indicating if the horse is an emergency runner. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         firstStarter:
           type: boolean
           description: Boolean indicating if the horse is having its first ever race
-            start.
+            start. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         form:
           $ref: '#/components/schemas/Form'
           description: Performance statistics for this horse across various conditions
@@ -3272,16 +4086,23 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Gear'
-          description: Current gear being worn by the horse.
+          description: Current gear being worn by the horse. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         gearChanges:
           type: string
-          description: Changes in this runner's applied gear for this race.
+          description: Changes in this runner's applied gear for this race. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 'Gelded '
+          x-pointInTimeStability: FROZEN_PRE_RACE
         homeTrack:
           type: string
           description: String indicating the track code of the horse's home track
-            (derived from Horse::trainingLocation)
+            (derived from Horse::trainingLocation) **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: FLEM
+          x-pointInTimeStability: FROZEN_PRE_RACE
         horse:
           $ref: '#/components/schemas/Horse'
           description: The horse breeding, ownership and other relevant details.
@@ -3291,22 +4112,28 @@ components:
             resulted, which is typically within 15 minutes after the race has finished.
         jockey:
           type: string
-          description: Full name of the jockey.
+          description: Full name of the jockey. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Rocky Cheung
+          x-pointInTimeStability: FROZEN_PRE_RACE
         jockeyForm:
           $ref: '#/components/schemas/JockeyForm'
           description: Performance statistics for the jockey riding this horse.
         jockeysOnlyRideAtMeeting:
           type: boolean
           description: Boolean indicating if the jockey has no other rides at the
-            meeting.
+            meeting. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         metadata:
           $ref: '#/components/schemas/RaceEntryMetadata'
           description: Additional metadata for this entry, including peak ratings.
         number:
           type: integer
-          description: Saddlecloth (TAB) number for this entry.
+          description: Saddlecloth (TAB) number for this entry. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 9
+          x-pointInTimeStability: FROZEN_PRE_RACE
         odds:
           $ref: '#/components/schemas/RaceEntryOdds'
           description: Live market odds information for this entry. Only present if
@@ -3318,17 +4145,23 @@ components:
             $ref: '#/components/schemas/PastEvent'
           description: Past form for this horse, including weight-adjusted and WFA
             ratings, and optionally benchmarking data. Depth depends on user subscription
-            tier and API being called.
+            tier and API being called. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceEntryId:
           type: string
           description: Unique Form King identifier for the race entry, comprised of
-            raceId and saddlecloth number.
+            raceId and saddlecloth number. **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
           example: PAKM_150526_1_1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceInPrep:
           type: integer
           description: The run number within the current preparation. A preparation/spell
-            boundary in Form King is 80 days.
+            boundary in Form King is 80 days. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: 1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         ratings:
           $ref: '#/components/schemas/RaceEntryRatings'
           description: A convenience object containing Form King ratings for this
@@ -3339,21 +4172,31 @@ components:
           items:
             $ref: '#/components/schemas/PastEvent'
           description: Recent barrier trial results for this horse. A trial is present
-            here if it has occurred since the last race or 80+ day spell.
+            here if it has occurred since the last race or 80+ day spell. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         ridingWeight:
           type: number
           description: Weight in kilograms that the jockey is expected to ride at.
-            This is the value stored in the Racing Australia system.
+            This is the value stored in the Racing Australia system. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 55.0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         scratched:
           type: boolean
           description: Boolean indicating if the horse has been officially withdrawn
-            from the race.
+            from the race. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         totalPrizeMoney:
           type: number
           description: Total career prize money earned by this horse, prior to the
-            race taking place.
+            race taking place. **Point-in-time integrity:** Locked at the scheduled
+            race jump time and never rewritten afterwards.
           example: 41000.0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackSpeedGoingForm:
           $ref: '#/components/schemas/GoingForm'
           description: Summarises win/place record for each FK Track Speed category.
@@ -3361,31 +4204,43 @@ components:
             track grades than the official goingForm data.
         trainer:
           type: string
-          description: Full name of the trainer or training partnership.
+          description: Full name of the trainer or training partnership. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: Jonathon Jachmann
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trainerForm:
           $ref: '#/components/schemas/TrainerForm'
           description: Performance statistics for the trainer of this horse.
         trainersOnlyRaceAtMeeting:
           type: boolean
           description: Boolean indicating if the trainer has no other runners at the
-            meeting.
+            meeting. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         weight:
           type: number
           description: Weight (in kilograms) assigned to the entry for the race. To
             determine weight carried, you need to incorporate the apprenticeClaim
-            and ridingWeight fields.
+            and ridingWeight fields. **Point-in-time integrity:** Locked at the scheduled
+            race jump time and never rewritten afterwards.
           example: 58.0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         weightCarried:
           type: number
           description: Actual weight carried in kilograms, including jockey and gear.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
           example: 58.0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         wfaDiff:
           type: number
           description: Difference in kilograms from the Form King Weight For Age allocation
             at the time of this race. We use a modified version of the Standard WFA
-            scale.
+            scale. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
           example: 10.082462134299995
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - barrier
       - horse
@@ -3402,26 +4257,36 @@ components:
       properties:
         barrier:
           type: integer
-          description: Barrier drawn for this runner.
+          description: Barrier drawn for this runner. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         horse:
           $ref: '#/components/schemas/HorseLite'
           description: Basic horse details including name, sire and dam.
         jockey:
           type: string
-          description: Name of the jockey.
+          description: Name of the jockey. **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
           example: Rocky Cheung
+          x-pointInTimeStability: FROZEN_PRE_RACE
         number:
           type: integer
-          description: Saddlecloth/runner number.
+          description: Saddlecloth/runner number. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: 9
+          x-pointInTimeStability: FROZEN_PRE_RACE
         scratched:
           type: boolean
-          description: Whether this runner has been scratched.
+          description: Whether this runner has been scratched. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trainer:
           type: string
-          description: Name of the trainer.
+          description: Name of the trainer. **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
           example: Jonathon Jachmann
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - barrier
       - horse
@@ -3436,11 +4301,11 @@ components:
       properties:
         peakRatings:
           type: array
-          items:
-            $ref: '#/components/schemas/PeakRating'
           description: Collection of peak ratings achieved by the horse. This field
-            has been deprecated in favour of RaceEntry::ratings.
+            has been deprecated in favour of RaceEntry::ratings. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           deprecated: true
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required: []
       description: Contains auxiliary metadata about the RaceEntry item. At the moment,
         peakRatings is the only information contained within.
@@ -3451,40 +4316,59 @@ components:
         avgNow:
           type: number
           description: The average corporate bookmaker price at the time of the most
-            recent fluctuation. See 'timestamp' for when this fluc occurred.
+            recent fluctuation. See 'timestamp' for when this fluc occurred. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         avgOpen:
           type: number
           description: The average corporate bookmaker price at market open, which
             is typically around 15-20 minutes after the TAB market opens. As such,
             some artificially high TAB open prices are not included as they've already
-            been knocked off by this point.
+            been knocked off by this point. **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         bestBookies:
           type: array
           items:
             type: string
           description: A list of lowercase bookmaker names that are currently offering
-            the best price (from Betwatch's bookmakerLower field).
+            the best price (from Betwatch's bookmakerLower field). **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         bestNow:
           type: number
           description: The best corporate bookmaker price at the time of the most
-            recent fluctuation. See 'timestamp' for when this fluc occurred.
+            recent fluctuation. This field is not always pre-race! See 'timestamp'
+            for when this fluc occurred, to confirm whether it was last fetched prior
+            to the scheduled race time (see also RaceSummary::date) **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         firmOrDrift:
           type: number
           description: The % change in the market's opinion of this runner since open.
             A value of -5 would mean that the runner has drifted by 5% chance of winning
             (say from $4 - a 25% chance to $5 - a 20% chance). This value is normalised
             for bookmaker % change and scratchings, making it a great indicator of
-            where money is (or isn't) being placed.
+            where money is (or isn't) being placed. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         flucs:
           type: array
           items:
             $ref: '#/components/schemas/Fluctuation'
           description: The complete list of (corporate bookmaker average price) betting
-            fluctuations for this runner, since open.
+            fluctuations for this runner, since open. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         timestamp:
           type: integer
           description: The time of the latest fluctuation, as a Unix timestamp in
-            UTC (milliseconds since Epoch).
+            UTC (milliseconds since Epoch). **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - avgNow
       - avgOpen
@@ -3507,25 +4391,36 @@ components:
             This value is calculated from the market opinion, using the latest RaceEntry::odds::flucs
             value (not after the scheduled race time), and the Race::lws (likely winning
             standard) and Race::expAdj value, which helps frame the expected rating
-            nicely within past ratings for today's race.
+            nicely within past ratings for today's race. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         neural:
           type: number
           description: The Form King Neural rating. This is not a measure of performance,
             rather a collection of points awarded to runners based on traditional
             form and statistics. It includes jockey, trainer, track, distance, beaten
-            margin and other similar items.
+            margin and other similar items. **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         peak:
           type: number
           description: The runner's career peak rating on the Form King scale, adjusted
-            to weight carried today.
+            to weight carried today. **Point-in-time integrity:** Locked at the scheduled
+            race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         peak12m:
           type: number
           description: The runner's 12 month peak rating on the Form King scale, adjusted
-            to weight carried today.
+            to weight carried today. **Point-in-time integrity:** Locked at the scheduled
+            race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         timestamp:
           type: integer
           description: The timestamp matching the fluc used for the exp calculation,
-            as a Unix timestamp in UTC (milliseconds since Epoch).
+            as a Unix timestamp in UTC (milliseconds since Epoch). **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - timestamp
       description: A convenience object that contains a series of ratings for the
@@ -3537,57 +4432,85 @@ components:
       properties:
         distance:
           type: integer
-          description: Race distance in metres.
+          description: Race distance in metres. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: 1100
+          x-pointInTimeStability: FROZEN_PRE_RACE
         entries:
           type: array
           items:
             $ref: '#/components/schemas/RaceEntryLite'
-          description: List of runners in this race with basic details.
+          description: List of runners in this race with basic details. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         going:
           type: string
-          description: Track condition description.
+          description: Track condition description. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Heavy
+          x-pointInTimeStability: FROZEN_PRE_RACE
         goingNumber:
           type: integer
-          description: Numeric track condition value.
+          description: Numeric track condition value. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 10
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lws:
           type: number
           description: The Likely Winning Standard value shown in the Form Guide,
             representing the computer's pre-race guess of the strength of this race,
-            at the weights carried on the Form King scale.
+            at the weights carried on the Form King scale. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         name:
           type: string
-          description: Full name of the race.
+          description: Full name of the race. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Western Corporate Project Management Mdn
+          x-pointInTimeStability: FROZEN_PRE_RACE
         nightMeeting:
           type: boolean
-          description: Whether this is a night meeting.
+          description: Whether this is a night meeting. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         number:
           type: integer
-          description: Race number on the card.
+          description: Race number on the card. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: 1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         prizemoneyGrade:
           type: string
-          description: Prizemoney grade classification.
+          description: Prizemoney grade classification. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: P
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceId:
           type: string
-          description: Unique identifier for this race.
+          description: Unique identifier for this race. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: ABNY_150526_1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceType:
           type: string
-          description: Type of race (e.g., Flat, Hurdle).
+          description: Type of race (e.g., Flat, Hurdle). **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: Flat
+          x-pointInTimeStability: FROZEN_PRE_RACE
         restrictions:
           type: string
-          description: Age or gender restrictions for this race.
+          description: Age or gender restrictions for this race. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: MDN.2+..S
+          x-pointInTimeStability: FROZEN_PRE_RACE
         status:
           type: string
-          description: Current status of the race (e.g., OPEN, CLOSED, FINAL).
+          description: Current status of the race (e.g., OPEN, CLOSED, FINAL). **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: FINAL_FIELDS
+          x-pointInTimeStability: FROZEN_PRE_RACE
         thirdPartyIds:
           type: object
           additionalProperties:
@@ -3596,15 +4519,21 @@ components:
               $ref: '#/components/schemas/IdAndType'
           description: A map of third-party provider name (e.g. BETFAIR) to a list
             of id/type pairs, allowing this race to be cross-referenced against markets
-            in that third-party system.
+            in that third-party system. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         totalPrizeMoney:
           type: number
-          description: Total prize money for this race.
+          description: Total prize money for this race. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 19600.0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackCode:
           type: string
-          description: Four-character track code.
+          description: Four-character track code. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: ABNY
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - distance
       - entries
@@ -3627,122 +4556,182 @@ components:
       properties:
         date:
           type: integer
-          description: Race date as a Unix timestamp (milliseconds since Epoch).
+          description: Race date as a Unix timestamp (milliseconds since Epoch). **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 1778819100000
+          x-pointInTimeStability: FROZEN_PRE_RACE
         direction:
           type: string
-          description: The direction of racing (CLOCKWISE, ANTICLOCKWISE).
+          description: The direction of racing (CLOCKWISE, ANTICLOCKWISE). **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: ANTICLOCKWISE
+          x-pointInTimeStability: FROZEN_PRE_RACE
         distance:
           type: integer
-          description: Official race distance in metres.
+          description: Official race distance in metres. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 1100
+          x-pointInTimeStability: FROZEN_PRE_RACE
         entries:
           type: array
           items:
             $ref: '#/components/schemas/RaceEntry'
           description: List of entries (runners) in this race, enriched with horse
-            profile data where available.
+            profile data where available. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         expAdj:
           type: number
           description: A uniform adjustment applied to every runner's raw EXP rating,
-            to help frame the EXP more accurately in competitive fields.
+            to help frame the EXP more accurately in competitive fields. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         fieldStrength:
           type: number
           description: Calculated strength of the field. This value has been deprecated
-            in favour of lws (Likely Winning Standard).
+            in favour of lws (Likely Winning Standard). **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 55.0
           deprecated: true
+          x-pointInTimeStability: FROZEN_PRE_RACE
         going:
           type: string
           description: Official track condition for this specific race (e.g. Synthetic,
-            Dirt, Fast, Good, Dead, Slow, Heavy).
+            Dirt, Fast, Good, Dead, Slow, Heavy). **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: Heavy
+          x-pointInTimeStability: FROZEN_PRE_RACE
         goingNumber:
           type: integer
-          description: Numeric value representing the official track condition.
+          description: Numeric value representing the official track condition. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 10
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lastUpdated:
           type: integer
           description: Unix timestamp in milliseconds (UTC) representing the data
-            update timestamp for this specific race.
+            update timestamp for this specific race. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 1778835962723
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lws:
           type: number
           description: The Likely Winning Standard value shown in the Form Guide,
             representing the computer's pre-race guess of the strength of this race,
-            at the weights carried on the Form King scale.
+            at the weights carried on the Form King scale. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         meetingId:
           type: string
+          x-pointInTimeStability: FROZEN_PRE_RACE
+          description: ' **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.'
         name:
           type: string
-          description: The name of the race.
+          description: The name of the race. **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
           example: Western Corporate Project Management Mdn
+          x-pointInTimeStability: FROZEN_PRE_RACE
         nightMeeting:
           type: boolean
           description: Boolean indicating whether the meeting is being run at night.
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         nomsRaceNo:
           type: integer
           description: Race numbers almost always change from NOMINATIONS/WEIGHTS
             stage to FINAL_FIELDS. This is a handy reference back to the pre-acceptances
-            race number.
+            race number. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         numRunners:
           type: integer
-          description: Number of runners in the race.
+          description: Number of runners in the race. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 10
+          x-pointInTimeStability: FROZEN_PRE_RACE
         number:
           type: integer
-          description: The race number on the card.
+          description: The race number on the card. **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: 1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         officialTiming:
           $ref: '#/components/schemas/OfficialTiming'
         prizemoneyGrade:
           type: string
           description: Grade/category of the race, based on prizemoney. Possible values
             are N (Non-TAB), C (Country), P (Provincial), MMW (Metro Midweek), MSAT
-            (Metro Saturday).
+            (Metro Saturday). **Point-in-time integrity:** Locked at the scheduled
+            race jump time and never rewritten afterwards.
           example: P
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceId:
           type: string
-          description: Form King unique identifier for the race.
+          description: Form King unique identifier for the race. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: ABNY_150526_1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceType:
           type: string
-          description: Type of race (e.g., Flat, Hurdle, Steeple).
+          description: Type of race (e.g., Flat, Hurdle, Steeple). **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: Flat
+          x-pointInTimeStability: FROZEN_PRE_RACE
         railPosition:
           type: string
           description: Textual description of the rail placement, including cutaway
-            or variable information.
+            or variable information. **Point-in-time integrity:** Locked at the scheduled
+            race jump time and never rewritten afterwards.
           example: Out 3m Entire Circuit
+          x-pointInTimeStability: FROZEN_PRE_RACE
         restrictions:
           type: string
           description: A string containing class, age, gender and weight restrictions
-            for the race.
+            for the race. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
           example: MDN.2+..S
+          x-pointInTimeStability: FROZEN_PRE_RACE
         stageId:
           type: string
           deprecated: true
+          x-pointInTimeStability: FROZEN_PRE_RACE
+          description: ' **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.'
         startTime:
           type: string
-          description: Scheduled start time as a string.
+          description: Scheduled start time as a string. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 12:25pm
+          x-pointInTimeStability: FROZEN_PRE_RACE
         status:
           type: string
           description: Status of the race (e.g., NOMINATIONS, WEIGHTS, FINAL_FIELDS,
-            INTERIM_RESULTS, RESULTED, ABANDONED).
+            INTERIM_RESULTS, RESULTED, ABANDONED). **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: FINAL_FIELDS
+          x-pointInTimeStability: FROZEN_PRE_RACE
         syntheticHold:
           type: number
           description: A decimal value representing the combined market percentage
             of the best odds across all supported bookmakers. A 120% synthetic hold
             would be represented as 1.2. Multiply by 100 to get the market %. Only
-            present when odds are available.
+            present when odds are available. **Point-in-time integrity:** Locked at
+            the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         tabMeeting:
           type: boolean
           description: Indicates whether the meeting is graded as TAB professional
-            or not.
+            or not. **Point-in-time integrity:** Locked at the scheduled race jump
+            time and never rewritten afterwards.
           example: true
+          x-pointInTimeStability: FROZEN_PRE_RACE
         thirdPartyIds:
           type: object
           additionalProperties:
@@ -3751,21 +4740,31 @@ components:
               $ref: '#/components/schemas/IdAndType'
           description: A map of third-party provider name (e.g. BETFAIR) to a list
             of id/type pairs, allowing this race to be cross-referenced against markets
-            in that third-party system.
+            in that third-party system. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         totalPrizeMoney:
           type: number
           description: Total prize money pool for the race in Australian dollars (AUD),
-            less any contribution to the Jockeys Trust or other charity.
+            less any contribution to the Jockeys Trust or other charity. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 19600.0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackCode:
           type: string
           description: The 4 character track code for the circuit that this race is
-            being run on.
+            being run on. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
           example: ABNY
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackName:
           type: string
-          description: Display name of the track hosting the meeting.
+          description: Display name of the track hosting the meeting. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: Albany
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - distance
       - entries
@@ -3914,17 +4913,25 @@ components:
         custom:
           type: boolean
           description: Whether this speedmap has been manually customised by a Form
-            King user. Defaults to false for all owner="formking" default maps.
+            King user. Defaults to false for all owner="formking" default maps. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         direction:
           type: string
           description: The running direction of the race (e.g. CLOCKWISE, ANTI_CLOCKWISE).
+            **Point-in-time integrity:** Locked at the scheduled race jump time and
+            never rewritten afterwards.
           example: CLOCKWISE
+          x-pointInTimeStability: FROZEN_PRE_RACE
         entries:
           type: array
           items:
             $ref: '#/components/schemas/SpeedmapEntry'
           description: List of per-runner SpeedmapEntry items, one per runner in the
-            race.
+            race. **Point-in-time integrity:** Locked at the scheduled race jump time
+            and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         expectedTempo:
           $ref: '#/components/schemas/ExpectedTempo'
           description: An object containing the expected race tempo, including a single
@@ -3932,13 +4939,17 @@ components:
         owner:
           type: string
           description: The source or owner of this speedmap (e.g. "formking", or if
-            owned by a user, their UID value).
+            owned by a user, their UID value). **Point-in-time integrity:** Locked
+            at the scheduled race jump time and never rewritten afterwards.
           example: formking
+          x-pointInTimeStability: FROZEN_PRE_RACE
         raceId:
           type: string
           description: Unique Form King identifier for the race that this speedmap
-            belongs to.
+            belongs to. **Point-in-time integrity:** Locked at the scheduled race
+            jump time and never rewritten afterwards.
           example: NCLE_120326_1
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - custom
       - direction
@@ -3955,58 +4966,87 @@ components:
       properties:
         barrier:
           type: integer
-          description: Barrier number drawn for this runner.
+          description: Barrier number drawn for this runner. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         breedingId:
           type: string
-          description: Form King unique horse identifier for this race entry.
+          description: Form King unique horse identifier for this race entry. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 2022_exceed-and-excel_wayborn
+          x-pointInTimeStability: FROZEN_PRE_RACE
         daysSinceLastRace:
           type: integer
-          description: Number of days since this horse last raced.
+          description: Number of days since this horse last raced. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 143
+          x-pointInTimeStability: FROZEN_PRE_RACE
         distanceChange:
           type: integer
           description: Change in race distance compared to the horse's last start,
-            in metres. Positive is up in distance this start.
+            in metres. Positive is up in distance this start. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         earlySpeedValues:
           $ref: '#/components/schemas/EarlySpeedMetrics'
           description: Detailed breakdown of the early speed score, including lengths
             from leader, lengths vs benchmark, overall score and position in run.
         emergency:
           type: boolean
-          description: Whether this runner is an emergency (reserve) entry.
+          description: Whether this runner is an emergency (reserve) entry. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         gridX:
           type: integer
           description: Used only for custom user maps. The grid position on the X
-            axis for this runner tile.
+            axis for this runner tile. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
           example: 9
+          x-pointInTimeStability: FROZEN_PRE_RACE
         gridY:
           type: integer
           description: Used only for custom user maps. The grid position on the Y
-            axis for this runner tile.
+            axis for this runner tile. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         horse:
           type: string
-          description: Name of the horse.
+          description: Name of the horse. **Point-in-time integrity:** Locked at the
+            scheduled race jump time and never rewritten afterwards.
           example: Twoexcel
+          x-pointInTimeStability: FROZEN_PRE_RACE
         locked:
           type: boolean
           description: Whether this entry has been manually locked in the X,Y speedmap
             grid position by the user. Not used in default Form King maps. See also
-            gridX and gridY.
+            gridX and gridY. **Point-in-time integrity:** Locked at the scheduled
+            race jump time and never rewritten afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         medianEarlyVsBenchmark:
           type: number
           description: The median early speed vs the Form King benchmark for this
-            runner, expressed in lengths. Positive is above (faster than) par.
+            runner, expressed in lengths. Positive is above (faster than) par. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: -3.6944527928043174
+          x-pointInTimeStability: FROZEN_PRE_RACE
         number:
           type: integer
-          description: Saddle cloth number for this runner.
+          description: Saddle cloth number for this runner. **Point-in-time integrity:**
+            Locked at the scheduled race jump time and never rewritten afterwards.
           example: 9
+          x-pointInTimeStability: FROZEN_PRE_RACE
         runInPrep:
           type: integer
-          description: Run number within the current preparation.
+          description: Run number within the current preparation. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 1
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - barrier
       - breedingId
@@ -4027,30 +5067,51 @@ components:
       properties:
         horseComboForm:
           type: string
-          description: Performance history of this trainer/horse combination.
+          description: Performance history of this trainer/horse combination. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 2:0-0-1
+          x-pointInTimeStability: FROZEN_PRE_RACE
         jockeyComboForm:
           type: string
-          description: Performance history of this trainer/jockey combination.
+          description: Performance history of this trainer/jockey combination. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         jockeyComboWinPercentage:
           type: number
-          description: Win percentage for this trainer/jockey combination.
+          description: Win percentage for this trainer/jockey combination. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lastTwelveMonthForm:
           type: string
-          description: Trainer's overall performance over the last 12 months.
+          description: Trainer's overall performance over the last 12 months. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 481:93-62-64
+          x-pointInTimeStability: FROZEN_PRE_RACE
         lastTwelveMonthWinPercentage:
           type: number
-          description: Trainer's win percentage over the last 12 months.
+          description: Trainer's win percentage over the last 12 months. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 19.334719334719335
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackComboForm:
           type: string
-          description: Performance history of this trainer at this track.
+          description: Performance history of this trainer at this track. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
           example: 0:0-0-0
+          x-pointInTimeStability: FROZEN_PRE_RACE
         trackComboWinPercentage:
           type: number
-          description: Win percentage for this trainer at this track.
+          description: Win percentage for this trainer at this track. **Point-in-time
+            integrity:** Locked at the scheduled race jump time and never rewritten
+            afterwards.
+          x-pointInTimeStability: FROZEN_PRE_RACE
       required:
       - horseComboForm
       - jockeyComboForm
